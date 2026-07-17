@@ -6,7 +6,7 @@ password = "REPLACE"
 database = "shiji"
 
 [biyi]
-login_url = "https://biyi.tky.laozi.pro/biyi/api/login"
+login_url = "https://biyi.tky.laozi.pro/biyi/login"
 base_url  = "https://biyi.tky.laozi.pro/biyi"
 user = "REPLACE"
 passwd = "REPLACE"
