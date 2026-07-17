@@ -18,3 +18,101 @@ def test_is_stale_false_when_fresh():
 
 def test_is_stale_true_when_empty():
     assert is_stale([None, None], 10_000_000, 1.0) is True
+
+
+from unittest.mock import MagicMock
+
+import cta_monitor.pipeline as pipeline_mod
+from cta_monitor.pipeline import run_once
+from cta_monitor.config import Config, PgConfig, BiyiConfig, DatahubConfig, SlackConfig
+from cta_monitor.models import BiyiRow, SignalRecord, RowStatus, TradeAgg
+
+
+def _cfg(accounts=()):
+    return Config(
+        pg=PgConfig("h", "1", "u", "p", "shiji"),
+        biyi=BiyiConfig("lu", "bu", "u", "pw"),
+        datahub=DatahubConfig("g", "k", "CYBERX_PROD"),
+        slack=SlackConfig("wh"),
+        accounts=tuple(accounts),
+        min_notional_u=10.0,
+        freshness_hours=1.0,
+    )
+
+
+def _biyi_row(ticker, account, spec, **kw):
+    base = dict(
+        strategy_name=spec, account=account, ticker=ticker, venue="BINANCE",
+        trade_size=100.0, signal_time_ms=1000, txn_status="stop",
+        tracing_id="t", current_inventory=50.0, target_inventory=50.0,
+    )
+    base.update(kw)
+    return BiyiRow(**base)
+
+
+def _pipe_sig(ts=1000, **kw):
+    base = dict(mark_price=1.0, current_qty_at_decision=0.0, target_qty=50.0,
+                delta_qty=50.0, signal_bar_ts_ms=ts)
+    base.update(kw)
+    return SignalRecord(**base)
+
+
+_NOW = 20_000_000
+_FRESH_TS = _NOW - 10          # 在 1h 窗内
+_STALE_TS = _NOW - 4 * 3600_000  # 4h 前
+
+
+def test_run_once_respects_account_allowlist():
+    biyi = MagicMock()
+    biyi.strategy_list_all.return_value = {"specX": "accX", "specY": "accY"}
+    biyi.fetch_financials.side_effect = lambda spec, acc: [_biyi_row("DOGE/USDT", acc, spec)]
+    datahub = MagicMock()
+    datahub.latest_signal.return_value = _pipe_sig(ts=_FRESH_TS)  # trade_size100/delta50 -> BELOW_TRADE_SIZE, 不查PG
+    res = run_once(_cfg(accounts=["accX"]), _NOW, biyi=biyi, datahub=datahub)
+    assert res.stale is False
+    # allowlist 只保留 accX -> 只处理 specX/accX 一行
+    assert [r.ticker for r in res.rows] == ["DOGE/USDT"]
+    biyi.fetch_financials.assert_called_once_with("specX", "accX")
+
+
+def test_run_once_stale_gate_returns_no_new_signal():
+    biyi = MagicMock()
+    biyi.strategy_list_all.return_value = {"specX": "accX"}
+    biyi.fetch_financials.side_effect = lambda spec, acc: [_biyi_row("DOGE/USDT", acc, spec)]
+    datahub = MagicMock()
+    datahub.latest_signal.return_value = _pipe_sig(ts=_STALE_TS)
+    res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
+    assert res.stale is True
+    assert res.rows == []
+    assert "上一小时没有新信号" in res.summary
+
+
+def test_run_once_ok_demotes_to_no_trades_when_no_fills(monkeypatch):
+    biyi = MagicMock()
+    biyi.strategy_list_all.return_value = {"specX": "accX"}
+    # trade_size=10, delta=50 -> 5>=1; notional 50>=10; signal_time_ms==ts -> OK
+    biyi.fetch_financials.side_effect = lambda spec, acc: [
+        _biyi_row("DOGE/USDT", acc, spec, trade_size=10.0, signal_time_ms=_FRESH_TS)
+    ]
+    datahub = MagicMock()
+    datahub.latest_signal.return_value = _pipe_sig(ts=_FRESH_TS)
+    monkeypatch.setattr(pipeline_mod, "fetch_trades", lambda *a, **k: [])
+    monkeypatch.setattr(pipeline_mod, "aggregate_trades", lambda rows: None)
+    res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
+    assert [r.status for r in res.rows] == [RowStatus.NO_TRADES]
+
+
+def test_run_once_ok_fills_maker_from_agg(monkeypatch):
+    biyi = MagicMock()
+    biyi.strategy_list_all.return_value = {"specX": "accX"}
+    biyi.fetch_financials.side_effect = lambda spec, acc: [
+        _biyi_row("DOGE/USDT", acc, spec, trade_size=10.0, signal_time_ms=_FRESH_TS)
+    ]
+    datahub = MagicMock()
+    datahub.latest_signal.return_value = _pipe_sig(ts=_FRESH_TS)
+    monkeypatch.setattr(pipeline_mod, "fetch_trades", lambda *a, **k: [object()])
+    monkeypatch.setattr(pipeline_mod, "aggregate_trades",
+                        lambda rows: TradeAgg(maker_ratio=0.5, start_ms=1, end_ms=2, duration_ms=1))
+    res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
+    assert res.rows[0].status == RowStatus.OK
+    assert res.rows[0].maker_ratio == 0.5
