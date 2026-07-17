@@ -1,0 +1,25 @@
+[postgres]
+host = "REPLACE"
+port = "REPLACE"
+user = "REPLACE"
+password = "REPLACE"
+database = "shiji"
+
+[biyi]
+login_url = "https://biyi.tky.laozi.pro/biyi/api/login"
+base_url  = "https://biyi.tky.laozi.pro/biyi"
+user = "REPLACE"
+passwd = "REPLACE"
+
+[datahub]
+gateway_url = "https://nexus.tyo.cyberx.com/nexus-data-hub-gateway/"
+api_key = "REPLACE"
+prefix = "CYBERX_PROD"
+
+[slack]
+webhook_url = "REPLACE"    # incoming webhook URL（发文本表格，不发图片）
+
+[monitor]
+accounts = []              # 空 = 监控全部在跑 CTA 账户；否则填 biyi accountNames 白名单
+min_notional_u = 10.0
+freshness_hours = 1.0
