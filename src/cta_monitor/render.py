@@ -24,8 +24,19 @@ _HEADERS = [
 ]
 
 
-def _short_account(account: str) -> str:
-    """账户短名：去掉 binance_ / cta_ 冗余段，保留可区分尾部。"""
+# 账户别名（全名 → 短名）；未在表中的账户回退到去前缀
+_ACCOUNT_ALIAS = {
+    "binance_client_asf_managed_trade1": "asf",
+    "binance_cta_client_luminova_trade1": "luminova",
+    "binance_tokyo_cta_momentum_test1_new": "test_new",
+    "binance_tokyo_cta_momentum_trade1": "momentum1",
+}
+
+
+def short_account(account: str) -> str:
+    """账户短名/别名：优先用 _ACCOUNT_ALIAS，否则去掉 binance_/cta_ 前缀段。"""
+    if account in _ACCOUNT_ALIAS:
+        return _ACCOUNT_ALIAS[account]
     return account.replace("binance_", "").replace("cta_", "")
 
 # 异常状态行首标记（正常留空）
@@ -64,7 +75,7 @@ def _split_change(s: str) -> tuple[str, str]:
 def _cells(r: ReportRow) -> list[str]:
     cur, tgt = _split_change(r.qty_change)
     return [
-        _short_account(r.account),
+        short_account(r.account),
         _STATUS_TAG.get(r.status, r.status.value),
         r.ticker,
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),

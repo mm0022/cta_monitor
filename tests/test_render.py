@@ -28,6 +28,16 @@ def test_render_text_has_header_and_rows():
     assert len({l.count("|") for l in lines}) == 1
 
 
+def test_short_account_alias():
+    from cta_monitor.render import short_account
+    assert short_account("binance_client_asf_managed_trade1") == "asf"
+    assert short_account("binance_cta_client_luminova_trade1") == "luminova"
+    assert short_account("binance_tokyo_cta_momentum_test1_new") == "test_new"
+    assert short_account("binance_tokyo_cta_momentum_trade1") == "momentum1"
+    # 未知账户回退到去前缀
+    assert short_account("binance_foo_bar") == "foo_bar"
+
+
 def test_all_status_tags_render():
     from cta_monitor.render import render_table_text
     rows = [_row(s, f"C{i}/USDT") for i, s in enumerate([

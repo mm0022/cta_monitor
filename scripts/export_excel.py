@@ -13,6 +13,7 @@ import pandas as pd
 from cta_monitor.config import load_config
 from cta_monitor.metrics import trunc_to
 from cta_monitor.pipeline import run_once
+from cta_monitor.render import short_account
 
 _BEIJING = timezone(timedelta(hours=8))
 
@@ -47,7 +48,7 @@ def main() -> None:
     for r in res.rows:
         cur, tgt = _split_change(r.qty_change)
         records.append({
-            "账户": r.account,
+            "账户": short_account(r.account),
             "状态": r.status.value,
             "TICKER": r.ticker,
             "mark_price": r.mark_price,
