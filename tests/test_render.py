@@ -19,8 +19,8 @@ def test_render_text_has_header_and_rows():
     # 账户短名：binance_/cta_ 段被去掉
     assert "acc1" in txt and "binance_cta_acc1" not in txt
     assert "DOGE/USDT" in txt and "BTC/USDT" in txt
-    # 百分比显示：maker 整数%、未完成 两位小数%
-    assert "75%" in txt and "4.45%" in txt
+    # 百分比显示：maker 两位小数%、未完成 两位小数%
+    assert "75.00%" in txt and "4.45%" in txt
     # 运行中行带状态标记
     assert "运行中" in txt
     # 每列等宽对齐：表头行与数据行列数一致

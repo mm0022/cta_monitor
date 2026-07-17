@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import unicodedata
 
+from cta_monitor.metrics import trunc_to
 from cta_monitor.models import ReportRow, RowStatus
 
 
@@ -15,9 +16,10 @@ def _pad(cell: str, width: int) -> str:
     """按显示宽度右侧补空格到 width。"""
     return cell + " " * (width - _disp_width(cell))
 
+# 列与 Excel 导出保持一致（14 列；不含 报单笔数/结束时间/开始时间）
 _HEADERS = [
-    "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u", "币量变化", "delta",
-    "报单笔数", "maker%", "结束时间", "开始时间", "执行ms",
+    "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u",
+    "决策持仓", "目标", "delta", "maker%", "执行ms",
     "未完成量", "未完成u", "未完成%",
 ]
 
@@ -46,17 +48,31 @@ def _fmt(v) -> str:
     return str(v)
 
 
+def _q(v) -> str:
+    """qty 列：截断到 6 位小数、去尾零（与 Excel 一致）。None/空 → ''。"""
+    if v is None or v == "":
+        return ""
+    s = f"{trunc_to(float(v), 6):.6f}"
+    return s.rstrip("0").rstrip(".") if "." in s else s
+
+
+def _split_change(s: str) -> tuple[str, str]:
+    """'cur→target' → (cur, target)；无箭头 → ('', '')。"""
+    return tuple(s.split("→", 1)) if "→" in s else ("", "")
+
+
 def _cells(r: ReportRow) -> list[str]:
+    cur, tgt = _split_change(r.qty_change)
     return [
         _short_account(r.account),
         _STATUS_TAG.get(r.status, r.status.value),
         r.ticker,
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),
-        r.qty_change, _fmt(r.delta_qty), _fmt(r.n_orders),
-        "" if r.maker_ratio is None else f"{round(r.maker_ratio * 100)}%",   # H 整数百分比
-        _fmt(r.end_ms), _fmt(r.start_ms), _fmt(r.duration_ms),
-        _fmt(r.twap_unfilled_qty), _fmt(r.unfilled_u),
-        "" if r.incomplete_pct is None else f"{r.incomplete_pct:.2f}%",       # N 未完成% 两位小数
+        _q(cur), _q(tgt), _q(r.delta_qty),
+        "" if r.maker_ratio is None else f"{r.maker_ratio * 100:.2f}%",   # maker% 两位小数
+        _fmt(r.duration_ms),
+        _q(r.twap_unfilled_qty), _q(r.unfilled_u),
+        "" if r.incomplete_pct is None else f"{r.incomplete_pct:.2f}%",   # 未完成% 两位小数
     ]
 
 
