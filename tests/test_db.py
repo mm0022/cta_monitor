@@ -24,3 +24,14 @@ def test_signal_ms_to_beijing():
     # 2026-07-17 06:07:00 北京 == 2026-07-16 22:07:00 UTC
     ms = 1784239620000
     assert signal_ms_to_beijing(ms) == "2026-07-17 06:07:00"
+
+
+def test_aggregate_zero_notional_no_div_error():
+    rows = [
+        TradeRow(is_maker=1, quantity=0.0, price=2.0, event_time=1000),
+        TradeRow(is_maker=0, quantity=0.0, price=3.0, event_time=1200),
+    ]
+    agg = aggregate_trades(rows)
+    assert agg is not None
+    assert agg.maker_ratio == 0.0     # total_notional==0 -> 0.0, 不抛异常
+    assert agg.start_ms == 1000 and agg.end_ms == 1200

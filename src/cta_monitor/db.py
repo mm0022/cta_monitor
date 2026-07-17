@@ -46,11 +46,13 @@ def fetch_trades(
     pg: PgConfig, strategy_name: str, sym: str, signal_time_beijing: str
 ) -> list[TradeRow]:
     """按 (strategy_name, sym, app_receive>信号时间, FULL_EXEC) 拉成交。"""
-    conninfo = (
-        f"host={pg.host} port={pg.port} user={pg.user} "
-        f"password={pg.password} dbname={pg.database}"
-    )
-    with psycopg.connect(conninfo) as conn, conn.cursor() as cur:
+    with psycopg.connect(
+        host=pg.host,
+        port=pg.port,
+        user=pg.user,
+        password=pg.password,
+        dbname=pg.database,
+    ) as conn, conn.cursor() as cur:
         cur.execute(
             _SQL,
             {"strategy_name": strategy_name, "sym": sym, "signal_time": signal_time_beijing},
