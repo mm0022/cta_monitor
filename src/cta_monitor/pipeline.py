@@ -56,15 +56,19 @@ def run_once(
             sig = datahub.latest_signal(account, coin_from_ticker(b.ticker))
             pairs.append((b, sig))
 
-    # 3) 无新信号闸门
+    # 3) 无新信号闸门（全部信号都超出 freshness 窗 → 整体跳过）
     if is_stale([sig for _, sig in pairs], now_ms, cfg.freshness_hours):
-        return RunResult(True, [], "上一小时没有新信号在运行")
+        return RunResult(
+            True, [], f"最近 {cfg.freshness_hours:g} 小时内没有新信号在运行"
+        )
 
-    # 4) 逐行判定 → 该查 PG 的查 → 组行（跳过本轮无信号的币，不进表）
+    # 4) 逐行判定 → 该查 PG 的查 → 组行
+    #    只统计「信号时间在 freshness_hours 内」的币：无信号、或信号超窗（≥freshness）→ 不进表
+    cutoff_ms = now_ms - int(cfg.freshness_hours * 3600_000)
     rows: list[ReportRow] = []
     for b, sig in pairs:
-        if sig is None:
-            continue  # datahub 无该币信号 → 不纳入本轮报告
+        if sig is None or sig.signal_bar_ts_ms < cutoff_ms:
+            continue  # datahub 无信号 / 信号超出 3h 窗 → 不纳入本轮报告
         status = classify_status(b, sig, min_notional_u=cfg.min_notional_u)
         agg = None
         if status in SHOULD_QUERY_STATUSES:

@@ -3,7 +3,7 @@ from cta_monitor.metrics import (
     sym_from_ticker,
     trunc_to,
     n_orders,
-    completion_pct,
+    incomplete_pct,
     classify_status,
     build_row,
     SHOULD_QUERY_STATUSES,
@@ -41,14 +41,14 @@ def test_n_orders_truncates():
     assert n_orders(-13.0376, 5.7) == 2.2
 
 
-def test_completion_pct_doge():
-    # 1 - 1376/30939.1 = 0.95551 -> 95.55
-    assert completion_pct(1376.0, 30939.1) == 95.55
+def test_incomplete_pct_doge():
+    # 1376/30939.1 = 0.044486 -> 4.45（未完成比例）
+    assert incomplete_pct(1376.0, 30939.1) == 4.45
 
 
-def test_completion_pct_negative_delta():
-    # 1000PEPE：L=-1, delta=-95225.8 -> ~100
-    assert completion_pct(-1.0, -95225.8) == 100.0
+def test_incomplete_pct_negative_delta():
+    # 1000PEPE：L=-1, delta=-95225.8 -> 未完成 ~0
+    assert incomplete_pct(-1.0, -95225.8) == 0.0
 
 
 def _biyi(**kw):
@@ -101,7 +101,7 @@ def test_classify_ok():
 
 def test_build_row_ok_fills_all_columns():
     agg = TradeAgg(maker_ratio=0.75, start_ms=1783987729868, end_ms=1783987839911, duration_ms=110043)
-    # current_inventory = target_qty + 1376 -> L = current - target = +1376, completion=95.55（对齐图）
+    # current_inventory = target_qty + 1376 -> L = current - target = +1376, 未完成=4.45
     biyi = _biyi(current_inventory=-97875.9 + 1376)
     row = build_row(biyi, _sig(), agg, RowStatus.OK)
     assert row.ticker == "DOGE/USDT"
@@ -111,7 +111,7 @@ def test_build_row_ok_fills_all_columns():
     assert row.maker_ratio == 0.75
     assert row.duration_ms == 110043
     assert row.twap_unfilled_qty == 1376.0
-    assert row.completion_pct == 95.55
+    assert row.incomplete_pct == 4.45               # 1376/30939.1*100
     assert row.unfilled_u == round(1376.0 * 0.07187, 6)
 
 
@@ -124,7 +124,7 @@ def test_build_row_no_signal():
     # sig 为空：数值列全 None
     for v in (row.mark_price, row.order_notional_u, row.delta_qty, row.n_orders,
               row.maker_ratio, row.end_ms, row.start_ms, row.duration_ms,
-              row.twap_unfilled_qty, row.unfilled_u, row.completion_pct):
+              row.twap_unfilled_qty, row.unfilled_u, row.incomplete_pct):
         assert v is None
     assert row.qty_change == ""
 
@@ -139,5 +139,5 @@ def test_build_row_no_agg_leaves_db_columns_none():
     assert row.order_notional_u == 179.0
     assert row.n_orders == 12.3
     assert row.twap_unfilled_qty == 1376.0
-    assert row.completion_pct == 95.55
+    assert row.incomplete_pct == 4.45
     assert row.status == RowStatus.NO_TRADES

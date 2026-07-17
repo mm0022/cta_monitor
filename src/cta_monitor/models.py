@@ -35,11 +35,12 @@ class BiyiRow:
 
 @dataclass(frozen=True)
 class TradeRow:
-    """order_event_his 一条 FULL_EXEC。"""
-    is_maker: int             # 1=maker, 0=taker
-    quantity: float           # exchange_quantity
-    price: float              # exchange_price
+    """order_event_his 一条事件（含各 event_type，非仅 FULL_EXEC）。"""
+    is_maker: int             # 1=maker, 0=taker（非成交事件无意义）
+    quantity: float           # exchange_quantity（非成交事件可能为 0）
+    price: float              # exchange_price（非成交事件可能为 0）
     event_time: int           # ms epoch
+    event_type: str = "FULL_EXEC"  # 事件类型；maker 只统计 FULL_EXEC，时间跨全部事件
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,6 @@ class ReportRow:
     duration_ms: int | None             # K
     twap_unfilled_qty: float | None     # L
     unfilled_u: float | None            # M
-    completion_pct: float | None        # N
+    incomplete_pct: float | None        # N（未完成比例 %）
     status: RowStatus
     note: str = ""

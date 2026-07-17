@@ -84,7 +84,24 @@ def test_run_once_stale_gate_returns_no_new_signal():
     res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
     assert res.stale is True
     assert res.rows == []
-    assert "上一小时没有新信号" in res.summary
+    assert "没有新信号" in res.summary
+
+
+def test_run_once_drops_rows_with_stale_signal():
+    # 同账户两个币：一个信号新鲜、一个超 3h -> 只统计新鲜的那个
+    biyi = MagicMock()
+    biyi.strategy_list_all.return_value = {"specX": "accX"}
+    biyi.fetch_financials.side_effect = lambda spec, acc: [
+        _biyi_row("DOGE/USDT", acc, spec),
+        _biyi_row("XRP/USDT", acc, spec),
+    ]
+    def latest(account, coin):
+        return _pipe_sig(ts=_FRESH_TS) if coin == "doge" else _pipe_sig(ts=_STALE_TS)
+    datahub = MagicMock()
+    datahub.latest_signal.side_effect = latest
+    res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
+    assert res.stale is False
+    assert [r.ticker for r in res.rows] == ["DOGE/USDT"]  # 超 3h 的 XRP 被过滤
 
 
 def test_run_once_ok_demotes_to_no_trades_when_no_fills(monkeypatch):

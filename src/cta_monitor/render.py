@@ -18,7 +18,7 @@ def _pad(cell: str, width: int) -> str:
 _HEADERS = [
     "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u", "币量变化", "delta",
     "报单笔数", "maker%", "结束时间", "开始时间", "执行ms",
-    "未完成量", "未完成u", "完成%",
+    "未完成量", "未完成u", "未完成%",
 ]
 
 
@@ -56,7 +56,7 @@ def _cells(r: ReportRow) -> list[str]:
         "" if r.maker_ratio is None else f"{round(r.maker_ratio * 100)}%",   # H 整数百分比
         _fmt(r.end_ms), _fmt(r.start_ms), _fmt(r.duration_ms),
         _fmt(r.twap_unfilled_qty), _fmt(r.unfilled_u),
-        "" if r.completion_pct is None else f"{r.completion_pct:.2f}%",       # N 两位小数百分比
+        "" if r.incomplete_pct is None else f"{r.incomplete_pct:.2f}%",       # N 未完成% 两位小数
     ]
 
 

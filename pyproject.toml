@@ -9,6 +9,7 @@ dependencies = [
     "requests>=2.31",
     "nexus-data-hub-sdk",
     "h2>=4.3.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.optional-dependencies]

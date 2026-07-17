@@ -29,9 +29,9 @@ def n_orders(delta_qty: float, trade_size: float) -> float:
     return trunc_to(abs(delta_qty) / trade_size, 1)
 
 
-def completion_pct(unfilled_qty: float, delta_qty: float) -> float:
-    """完成比例 = round((1 - abs(未完成)/abs(delta)) * 100, 2)。分母取 abs 兼容负 delta。"""
-    return round((1 - abs(unfilled_qty) / abs(delta_qty)) * 100, 2)
+def incomplete_pct(unfilled_qty: float, delta_qty: float) -> float:
+    """未完成比例 = round(abs(未完成)/abs(delta) * 100, 2)。分母取 abs 兼容负 delta。"""
+    return round(abs(unfilled_qty) / abs(delta_qty) * 100, 2)
 
 
 SHOULD_QUERY_STATUSES: set[RowStatus] = {RowStatus.OK, RowStatus.SIGNAL_TIME_MISMATCH}
@@ -66,13 +66,13 @@ def build_row(
             ticker=biyi.ticker, account=biyi.account, mark_price=None, trade_size=biyi.trade_size,
             order_notional_u=None, qty_change="", delta_qty=None, n_orders=None,
             maker_ratio=None, end_ms=None, start_ms=None, duration_ms=None,
-            twap_unfilled_qty=None, unfilled_u=None, completion_pct=None,
+            twap_unfilled_qty=None, unfilled_u=None, incomplete_pct=None,
             status=status, note="datahub 无信号",
         )
 
     unfilled = biyi.current_inventory - sig.target_qty
-    completion = (
-        completion_pct(unfilled, sig.delta_qty) if sig.delta_qty != 0 else None
+    incomplete = (
+        incomplete_pct(unfilled, sig.delta_qty) if sig.delta_qty != 0 else None
     )
     return ReportRow(
         ticker=biyi.ticker,
@@ -89,7 +89,7 @@ def build_row(
         duration_ms=agg.duration_ms if agg else None,
         twap_unfilled_qty=unfilled,
         unfilled_u=round(unfilled * sig.mark_price, 6),
-        completion_pct=completion,
+        incomplete_pct=incomplete,
         status=status,
         note="",
     )
