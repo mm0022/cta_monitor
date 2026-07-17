@@ -8,14 +8,15 @@ import psycopg
 from cta_monitor.config import PgConfig
 from cta_monitor.models import TradeAgg, TradeRow
 
-# 注意：不加 event_type 过滤。执行窗口（开始/结束/执行ms）跨本轮全部事件
-# （下单/撤改/成交等）；maker 比例只从 FULL_EXEC 成交子集算（见 aggregate_trades）。
+# 用 order_event（全生命周期事件，非仅成交的 order_event_his），按 account_no + sym + 时间。
+# 不加 event_type 过滤：执行窗口（开始/结束/执行ms）跨本轮全部事件的 event_time min/max；
+# maker 比例只从 FULL_EXEC 成交子集算（见 aggregate_trades）。
 _SQL = """
 SELECT s.event_type, s.is_maker, s.exchange_quantity, s.exchange_price, s.event_time
-FROM order_event_his s
-WHERE s.strategy_name = %(strategy_name)s
-  AND s.sym          = %(sym)s
-  AND s.app_receive  > %(signal_time)s;
+FROM order_event s
+WHERE s.account_no = %(account_no)s
+  AND s.sym        = %(sym)s
+  AND s.app_receive > %(signal_time)s;
 """
 
 
@@ -45,9 +46,9 @@ def signal_ms_to_utc_str(signal_bar_ts_ms: int) -> str:
 
 
 def fetch_trades(
-    pg: PgConfig, strategy_name: str, sym: str, signal_time_utc: str
+    pg: PgConfig, account_no: str, sym: str, signal_time_utc: str
 ) -> list[TradeRow]:
-    """按 (strategy_name, sym, app_receive>信号时间(UTC)) 拉本轮全部事件（不限 event_type）。"""
+    """按 (account_no, sym, app_receive>信号时间(UTC)) 从 order_event 拉本轮全部事件（不限 event_type）。"""
     with psycopg.connect(
         host=pg.host,
         port=pg.port,
@@ -57,7 +58,7 @@ def fetch_trades(
     ) as conn, conn.cursor() as cur:
         cur.execute(
             _SQL,
-            {"strategy_name": strategy_name, "sym": sym, "signal_time": signal_time_utc},
+            {"account_no": account_no, "sym": sym, "signal_time": signal_time_utc},
         )
         return [
             TradeRow(

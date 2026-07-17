@@ -74,7 +74,7 @@ def run_once(
         if status in SHOULD_QUERY_STATUSES:
             trades = fetch_trades(
                 cfg.pg,
-                b.strategy_name,
+                b.account,
                 sym_from_ticker(b.ticker, b.venue),
                 signal_ms_to_utc_str(sig.signal_bar_ts_ms),
             )
