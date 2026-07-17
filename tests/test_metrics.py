@@ -112,3 +112,32 @@ def test_build_row_ok_fills_all_columns():
     assert row.duration_ms == 110043
     assert row.twap_unfilled_qty == 1376.0
     assert row.completion_pct == 95.55
+    assert row.unfilled_u == round(1376.0 * 0.07187, 6)
+
+
+def test_build_row_no_signal():
+    row = build_row(_biyi(), None, None, RowStatus.NO_SIGNAL)
+    assert row.ticker == "DOGE/USDT"
+    assert row.trade_size == 2500.0
+    assert row.note == "datahub 无信号"
+    assert row.status == RowStatus.NO_SIGNAL
+    # sig 为空：数值列全 None
+    for v in (row.mark_price, row.order_notional_u, row.delta_qty, row.n_orders,
+              row.maker_ratio, row.end_ms, row.start_ms, row.duration_ms,
+              row.twap_unfilled_qty, row.unfilled_u, row.completion_pct):
+        assert v is None
+    assert row.qty_change == ""
+
+
+def test_build_row_no_agg_leaves_db_columns_none():
+    biyi = _biyi(current_inventory=-97875.9 + 1376)
+    row = build_row(biyi, _sig(), None, RowStatus.NO_TRADES)
+    # DB 列（H/I/J/K）为 None
+    assert row.maker_ratio is None
+    assert row.end_ms is None and row.start_ms is None and row.duration_ms is None
+    # 非 DB 列仍填充
+    assert row.order_notional_u == 179.0
+    assert row.n_orders == 12.3
+    assert row.twap_unfilled_qty == 1376.0
+    assert row.completion_pct == 95.55
+    assert row.status == RowStatus.NO_TRADES
