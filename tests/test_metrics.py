@@ -13,7 +13,7 @@ from cta_monitor.models import BiyiRow, SignalRecord, TradeAgg, RowStatus
 
 def test_coin_and_sym():
     assert coin_from_ticker("DOGE/USDT") == "doge"
-    assert sym_from_ticker("DOGE/USDT", "BINANCE") == "BINANCE_PERP_DOGE_USDT"
+    assert sym_from_ticker("DOGE/USDT", "BINANCE_PERP") == "BINANCE_PERP_DOGE_USDT"
     assert coin_from_ticker("1000PEPE/USDT") == "1000pepe"
 
 

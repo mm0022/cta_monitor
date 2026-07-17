@@ -16,10 +16,15 @@ def _pad(cell: str, width: int) -> str:
     return cell + " " * (width - _disp_width(cell))
 
 _HEADERS = [
-    "状态", "TICKER", "mark", "单笔粒度", "单笔报单u", "币量变化", "delta",
+    "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u", "币量变化", "delta",
     "报单笔数", "maker%", "结束时间", "开始时间", "执行ms",
     "未完成量", "未完成u", "完成%",
 ]
+
+
+def _short_account(account: str) -> str:
+    """账户短名：去掉 binance_ / cta_ 冗余段，保留可区分尾部。"""
+    return account.replace("binance_", "").replace("cta_", "")
 
 # 异常状态行首标记（正常留空）
 _STATUS_TAG = {
@@ -43,6 +48,7 @@ def _fmt(v) -> str:
 
 def _cells(r: ReportRow) -> list[str]:
     return [
+        _short_account(r.account),
         _STATUS_TAG.get(r.status, r.status.value),
         r.ticker,
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),

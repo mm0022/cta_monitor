@@ -63,6 +63,7 @@ class RowStatus(str, Enum):
 @dataclass(frozen=True)
 class ReportRow:
     ticker: str                         # A
+    account: str                        # 所属 biyi 账户（多账户合表时区分）
     mark_price: float | None            # B
     trade_size: float | None            # C
     order_notional_u: float | None      # D

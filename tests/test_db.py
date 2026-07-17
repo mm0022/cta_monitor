@@ -1,4 +1,4 @@
-from cta_monitor.db import aggregate_trades, signal_ms_to_beijing
+from cta_monitor.db import aggregate_trades, signal_ms_to_utc_str
 from cta_monitor.models import TradeRow
 
 
@@ -20,10 +20,10 @@ def test_aggregate_maker_ratio_by_notional():
     assert agg.duration_ms == 500
 
 
-def test_signal_ms_to_beijing():
-    # 2026-07-17 06:07:00 北京 == 2026-07-16 22:07:00 UTC
+def test_signal_ms_to_utc_str():
+    # app_receive 实测为 UTC，故信号时间也按 UTC 格式化
     ms = 1784239620000
-    assert signal_ms_to_beijing(ms) == "2026-07-17 06:07:00"
+    assert signal_ms_to_utc_str(ms) == "2026-07-16 22:07:00"
 
 
 def test_aggregate_zero_notional_no_div_error():

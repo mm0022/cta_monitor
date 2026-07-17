@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from cta_monitor.biyi import BiyiClient
 from cta_monitor.config import Config
 from cta_monitor.datahub import DatahubReader
-from cta_monitor.db import aggregate_trades, fetch_trades, signal_ms_to_beijing
+from cta_monitor.db import aggregate_trades, fetch_trades, signal_ms_to_utc_str
 from cta_monitor.metrics import (
     SHOULD_QUERY_STATUSES,
     build_row,
@@ -60,24 +60,26 @@ def run_once(
     if is_stale([sig for _, sig in pairs], now_ms, cfg.freshness_hours):
         return RunResult(True, [], "上一小时没有新信号在运行")
 
-    # 4) 逐行判定 → 该查 PG 的查 → 组行
+    # 4) 逐行判定 → 该查 PG 的查 → 组行（跳过本轮无信号的币，不进表）
     rows: list[ReportRow] = []
     for b, sig in pairs:
+        if sig is None:
+            continue  # datahub 无该币信号 → 不纳入本轮报告
         status = classify_status(b, sig, min_notional_u=cfg.min_notional_u)
         agg = None
-        if status in SHOULD_QUERY_STATUSES and sig is not None:
+        if status in SHOULD_QUERY_STATUSES:
             trades = fetch_trades(
                 cfg.pg,
                 b.strategy_name,
                 sym_from_ticker(b.ticker, b.venue),
-                signal_ms_to_beijing(sig.signal_bar_ts_ms),
+                signal_ms_to_utc_str(sig.signal_bar_ts_ms),
             )
             agg = aggregate_trades(trades)
             if agg is None and status == RowStatus.OK:
                 status = RowStatus.NO_TRADES
         rows.append(build_row(b, sig, agg, status))
 
-    rows.sort(key=lambda r: r.ticker)
+    rows.sort(key=lambda r: (r.account, r.ticker))
     ok = sum(1 for r in rows if r.status == RowStatus.OK)
     running = sum(1 for r in rows if r.status == RowStatus.RUNNING)
     alert = sum(1 for r in rows if r.status in (RowStatus.SIGNAL_TIME_MISMATCH, RowStatus.NO_TRADES))

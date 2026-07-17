@@ -1,14 +1,12 @@
 """order_event_his 取数与聚合。"""
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import psycopg
 
 from cta_monitor.config import PgConfig
 from cta_monitor.models import TradeAgg, TradeRow
-
-_BEIJING = timezone(timedelta(hours=8))
 
 _SQL = """
 SELECT s.is_maker, s.exchange_quantity, s.exchange_price, s.event_time
@@ -36,16 +34,17 @@ def aggregate_trades(rows: list[TradeRow]) -> TradeAgg | None:
     )
 
 
-def signal_ms_to_beijing(signal_bar_ts_ms: int) -> str:
-    """UTC ms → 北京时间 'YYYY-MM-DD HH:MM:SS'（与 app_receive 同时区比较）。"""
-    dt = datetime.fromtimestamp(signal_bar_ts_ms / 1000, tz=timezone.utc).astimezone(_BEIJING)
+def signal_ms_to_utc_str(signal_bar_ts_ms: int) -> str:
+    """UTC ms → 'YYYY-MM-DD HH:MM:SS'（UTC）。
+    order_event.app_receive 实测为 UTC（app_receive==event_time UTC），与 signal_bar_ts_ms 同口径。"""
+    dt = datetime.fromtimestamp(signal_bar_ts_ms / 1000, tz=timezone.utc)
     return dt.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def fetch_trades(
-    pg: PgConfig, strategy_name: str, sym: str, signal_time_beijing: str
+    pg: PgConfig, strategy_name: str, sym: str, signal_time_utc: str
 ) -> list[TradeRow]:
-    """按 (strategy_name, sym, app_receive>信号时间, FULL_EXEC) 拉成交。"""
+    """按 (strategy_name, sym, app_receive>信号时间(UTC), FULL_EXEC) 拉成交。"""
     with psycopg.connect(
         host=pg.host,
         port=pg.port,
@@ -55,7 +54,7 @@ def fetch_trades(
     ) as conn, conn.cursor() as cur:
         cur.execute(
             _SQL,
-            {"strategy_name": strategy_name, "sym": sym, "signal_time": signal_time_beijing},
+            {"strategy_name": strategy_name, "sym": sym, "signal_time": signal_time_utc},
         )
         return [
             TradeRow(

@@ -12,9 +12,10 @@ def coin_from_ticker(ticker: str) -> str:
 
 
 def sym_from_ticker(ticker: str, venue: str) -> str:
-    """("DOGE/USDT","BINANCE") -> "BINANCE_PERP_DOGE_USDT"（order_event.sym）。"""
+    """("DOGE/USDT","BINANCE_PERP") -> "BINANCE_PERP_DOGE_USDT"（order_event.sym）。
+    biyi VENUE 值已含市场段（如 BINANCE_PERP），直接与 base/quote 拼接。"""
     base, quote = ticker.split("/", 1)
-    return f"{venue.strip().upper()}_PERP_{base.strip().upper()}_{quote.strip().upper()}"
+    return f"{venue.strip().upper()}_{base.strip().upper()}_{quote.strip().upper()}"
 
 
 def trunc_to(value: float, ndigits: int) -> float:
@@ -62,7 +63,7 @@ def build_row(
     """组一行 14 列。sig 为空只出 ticker + 状态；DB 列仅在 agg 存在时填。"""
     if sig is None:
         return ReportRow(
-            ticker=biyi.ticker, mark_price=None, trade_size=biyi.trade_size,
+            ticker=biyi.ticker, account=biyi.account, mark_price=None, trade_size=biyi.trade_size,
             order_notional_u=None, qty_change="", delta_qty=None, n_orders=None,
             maker_ratio=None, end_ms=None, start_ms=None, duration_ms=None,
             twap_unfilled_qty=None, unfilled_u=None, completion_pct=None,
@@ -75,6 +76,7 @@ def build_row(
     )
     return ReportRow(
         ticker=biyi.ticker,
+        account=biyi.account,
         mark_price=sig.mark_price,
         trade_size=biyi.trade_size,
         order_notional_u=trunc_to(biyi.trade_size * sig.mark_price, 0),  # 图为整数、截断

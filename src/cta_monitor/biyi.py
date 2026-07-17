@@ -1,23 +1,31 @@
 """biyi 客户端：登录 + 策略列表 + financials 解析。"""
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 import requests
 
 from cta_monitor.config import BiyiConfig
 from cta_monitor.models import BiyiRow
 
-# 业务名 → financials tableData 表头 token。
-# TICKER / INVENTORY_BASE 已确认；其余 6 个 **必须用 scripts/probe_financials.py 坐实**后回填。
+# 业务名 → financials tableData 表头 token（全部已用 scripts/probe_financials.py 实测坐实）。
 FINANCIALS_COLS: dict[str, str] = {
     "ticker": "TICKER",
-    "venue": "VENUE",                       # 待探针确认
-    "trade_size": "TRADE_SIZE",             # 单笔粒度，待探针确认
-    "signal_time": "SIGNAL_TIME",           # 信号时间，待探针确认
-    "txn_status": "TASK_STATE",             # 事务状态，待探针确认
-    "tracing_id": "TRACING_ID",             # 追踪ID，待探针确认
-    "current_inventory": "INVENTORY_BASE",  # 当前库存(=INVENTORY_BASE)，已确认
-    "target_inventory": "TARGET_INVENTORY",    # 目标库存，待探针确认
+    "venue": "VENUE",                              # 值形如 BINANCE_PERP
+    "trade_size": "TRADE_SIZE",                    # 单笔粒度
+    "signal_time": "SIGNAL_TS",                    # 信号时间（UTC 日期时间字符串）
+    "txn_status": "TRANSACTION_STATE",             # 事务状态 RUNNING/STOP
+    "tracing_id": "TRACE_ID",                      # 追踪ID
+    "current_inventory": "INVENTORY_BASE",         # 当前库存
+    "target_inventory": "TWAP_TARGET_INVENTORY",   # 目标库存
 }
+
+
+def _biyi_signal_ts_to_ms(s: str) -> int:
+    """biyi SIGNAL_TS 是 UTC 日期时间字符串 'YYYY-MM-DD HH:MM:SS' → UTC ms epoch。
+    与 datahub signal_bar_ts_ms（同为 UTC ms）同口径，供信号时间匹配比对。"""
+    dt = datetime.strptime(s.strip(), "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+    return int(dt.timestamp() * 1000)
 
 
 def _col_index(header_cells: list[str]) -> dict[str, int]:
@@ -50,7 +58,7 @@ def parse_financials(
                 ticker=f[idx[cols["ticker"]]],
                 venue=f[idx[cols["venue"]]],
                 trade_size=float(f[idx[cols["trade_size"]]]),
-                signal_time_ms=int(float(f[idx[cols["signal_time"]]])),
+                signal_time_ms=_biyi_signal_ts_to_ms(f[idx[cols["signal_time"]]]),
                 txn_status=f[idx[cols["txn_status"]]],
                 tracing_id=f[idx[cols["tracing_id"]]],
                 current_inventory=float(f[idx[cols["current_inventory"]]]),

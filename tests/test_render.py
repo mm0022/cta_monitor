@@ -2,9 +2,9 @@ from cta_monitor.models import ReportRow, RowStatus
 from cta_monitor.render import render_table_text
 
 
-def _row(status=RowStatus.OK, ticker="DOGE/USDT"):
+def _row(status=RowStatus.OK, ticker="DOGE/USDT", account="binance_cta_acc1"):
     return ReportRow(
-        ticker=ticker, mark_price=0.07187, trade_size=2500.0,
+        ticker=ticker, account=account, mark_price=0.07187, trade_size=2500.0,
         order_notional_u=179.0, qty_change="-128815.0→-97875.9", delta_qty=30939.1,
         n_orders=12.3, maker_ratio=0.75, end_ms=1783987839911, start_ms=1783987729868,
         duration_ms=110043, twap_unfilled_qty=1376.0, unfilled_u=98.9, completion_pct=95.55,
@@ -15,7 +15,9 @@ def _row(status=RowStatus.OK, ticker="DOGE/USDT"):
 def test_render_text_has_header_and_rows():
     txt = render_table_text([_row(), _row(RowStatus.RUNNING, "BTC/USDT")], "测试标题")
     assert "测试标题" in txt
-    assert "TICKER" in txt and "完成%" in txt
+    assert "账户" in txt and "TICKER" in txt and "完成%" in txt
+    # 账户短名：binance_/cta_ 段被去掉
+    assert "acc1" in txt and "binance_cta_acc1" not in txt
     assert "DOGE/USDT" in txt and "BTC/USDT" in txt
     # 百分比显示：maker 整数%、完成 两位小数%
     assert "75%" in txt and "95.55%" in txt
@@ -39,7 +41,7 @@ def test_all_status_tags_render():
 
 def test_none_fields_render_empty_not_none():
     none_row = ReportRow(
-        ticker="X/USDT", mark_price=None, trade_size=None, order_notional_u=None,
+        ticker="X/USDT", account="acc", mark_price=None, trade_size=None, order_notional_u=None,
         qty_change="", delta_qty=None, n_orders=None, maker_ratio=None,
         end_ms=None, start_ms=None, duration_ms=None, twap_unfilled_qty=None,
         unfilled_u=None, completion_pct=None, status=RowStatus.NO_SIGNAL,
