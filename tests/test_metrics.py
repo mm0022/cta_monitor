@@ -4,7 +4,11 @@ from cta_monitor.metrics import (
     trunc_to,
     n_orders,
     completion_pct,
+    classify_status,
+    build_row,
+    SHOULD_QUERY_STATUSES,
 )
+from cta_monitor.models import BiyiRow, SignalRecord, TradeAgg, RowStatus
 
 
 def test_coin_and_sym():
@@ -45,3 +49,66 @@ def test_completion_pct_doge():
 def test_completion_pct_negative_delta():
     # 1000PEPE：L=-1, delta=-95225.8 -> ~100
     assert completion_pct(-1.0, -95225.8) == 100.0
+
+
+def _biyi(**kw):
+    base = dict(
+        strategy_name="s1", account="acc", ticker="DOGE/USDT", venue="BINANCE",
+        trade_size=2500.0, signal_time_ms=1000, txn_status="stop",
+        tracing_id="t1", current_inventory=-97875.9, target_inventory=-97875.9 - 1376,
+    )
+    base.update(kw)
+    return BiyiRow(**base)
+
+
+def _sig(**kw):
+    base = dict(
+        mark_price=0.07187, current_qty_at_decision=-128815.0,
+        target_qty=-97875.9, delta_qty=30939.1, signal_bar_ts_ms=1000,
+    )
+    base.update(kw)
+    return SignalRecord(**base)
+
+
+def test_classify_running():
+    assert classify_status(_biyi(txn_status="RUNNING"), _sig(), min_notional_u=10) == RowStatus.RUNNING
+
+
+def test_classify_no_signal():
+    assert classify_status(_biyi(), None, min_notional_u=10) == RowStatus.NO_SIGNAL
+
+
+def test_classify_small_notional():
+    s = _sig(delta_qty=1.0, mark_price=0.5)  # 0.5u < 10u
+    assert classify_status(_biyi(), s, min_notional_u=10) == RowStatus.SMALL_NOTIONAL
+
+
+def test_classify_below_trade_size():
+    s = _sig(delta_qty=100.0, mark_price=1.0)  # notional 100u ok
+    b = _biyi(trade_size=200.0)                # 100/200 < 1
+    assert classify_status(b, s, min_notional_u=10) == RowStatus.BELOW_TRADE_SIZE
+
+
+def test_classify_signal_time_mismatch():
+    b = _biyi(signal_time_ms=999)
+    assert classify_status(b, _sig(signal_bar_ts_ms=1000), min_notional_u=10) == RowStatus.SIGNAL_TIME_MISMATCH
+
+
+def test_classify_ok():
+    assert classify_status(_biyi(), _sig(), min_notional_u=10) == RowStatus.OK
+    assert SHOULD_QUERY_STATUSES == {RowStatus.OK, RowStatus.SIGNAL_TIME_MISMATCH}
+
+
+def test_build_row_ok_fills_all_columns():
+    agg = TradeAgg(maker_ratio=0.75, start_ms=1783987729868, end_ms=1783987839911, duration_ms=110043)
+    # current_inventory = target_qty + 1376 -> L = current - target = +1376, completion=95.55（对齐图）
+    biyi = _biyi(current_inventory=-97875.9 + 1376)
+    row = build_row(biyi, _sig(), agg, RowStatus.OK)
+    assert row.ticker == "DOGE/USDT"
+    assert row.order_notional_u == 179.0            # trunc(2500*0.07187)=trunc(179.675)=179
+    assert row.qty_change == "-128815.0→-97875.9"
+    assert row.n_orders == 12.3                      # trunc(30939.1/2500,1)=12.3
+    assert row.maker_ratio == 0.75
+    assert row.duration_ms == 110043
+    assert row.twap_unfilled_qty == 1376.0
+    assert row.completion_pct == 95.55

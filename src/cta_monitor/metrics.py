@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import math
 
+from cta_monitor.models import BiyiRow, ReportRow, RowStatus, SignalRecord, TradeAgg
+
 
 def coin_from_ticker(ticker: str) -> str:
     """"DOGE/USDT" -> "doge"（datahub key 的 coin 段，小写 base）。"""
@@ -29,3 +31,63 @@ def n_orders(delta_qty: float, trade_size: float) -> float:
 def completion_pct(unfilled_qty: float, delta_qty: float) -> float:
     """完成比例 = round((1 - abs(未完成)/abs(delta)) * 100, 2)。分母取 abs 兼容负 delta。"""
     return round((1 - abs(unfilled_qty) / abs(delta_qty)) * 100, 2)
+
+
+SHOULD_QUERY_STATUSES: set[RowStatus] = {RowStatus.OK, RowStatus.SIGNAL_TIME_MISMATCH}
+
+
+def classify_status(
+    biyi: BiyiRow, sig: SignalRecord | None, *, min_notional_u: float
+) -> RowStatus:
+    """按序判定行状态（命中即返回）。不涉及 PG。"""
+    if sig is None:
+        return RowStatus.NO_SIGNAL
+    if biyi.txn_status.strip().lower() == "running":
+        return RowStatus.RUNNING
+    if abs(sig.delta_qty) * sig.mark_price < min_notional_u:
+        return RowStatus.SMALL_NOTIONAL
+    if abs(sig.delta_qty) / biyi.trade_size < 1:
+        return RowStatus.BELOW_TRADE_SIZE
+    if biyi.signal_time_ms != sig.signal_bar_ts_ms:
+        return RowStatus.SIGNAL_TIME_MISMATCH
+    return RowStatus.OK
+
+
+def build_row(
+    biyi: BiyiRow,
+    sig: SignalRecord | None,
+    agg: TradeAgg | None,
+    status: RowStatus,
+) -> ReportRow:
+    """组一行 14 列。sig 为空只出 ticker + 状态；DB 列仅在 agg 存在时填。"""
+    if sig is None:
+        return ReportRow(
+            ticker=biyi.ticker, mark_price=None, trade_size=biyi.trade_size,
+            order_notional_u=None, qty_change="", delta_qty=None, n_orders=None,
+            maker_ratio=None, end_ms=None, start_ms=None, duration_ms=None,
+            twap_unfilled_qty=None, unfilled_u=None, completion_pct=None,
+            status=status, note="datahub 无信号",
+        )
+
+    unfilled = biyi.current_inventory - sig.target_qty
+    completion = (
+        completion_pct(unfilled, sig.delta_qty) if sig.delta_qty != 0 else None
+    )
+    return ReportRow(
+        ticker=biyi.ticker,
+        mark_price=sig.mark_price,
+        trade_size=biyi.trade_size,
+        order_notional_u=trunc_to(biyi.trade_size * sig.mark_price, 0),  # 图为整数、截断
+        qty_change=f"{sig.current_qty_at_decision}→{sig.target_qty}",
+        delta_qty=sig.delta_qty,
+        n_orders=n_orders(sig.delta_qty, biyi.trade_size),
+        maker_ratio=agg.maker_ratio if agg else None,
+        end_ms=agg.end_ms if agg else None,
+        start_ms=agg.start_ms if agg else None,
+        duration_ms=agg.duration_ms if agg else None,
+        twap_unfilled_qty=unfilled,
+        unfilled_u=round(unfilled * sig.mark_price, 6),
+        completion_pct=completion,
+        status=status,
+        note="",
+    )
