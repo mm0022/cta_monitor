@@ -18,7 +18,7 @@ def sym_from_ticker(ticker: str, venue: str) -> str:
 def trunc_to(value: float, ndigits: int) -> float:
     """截断（向零取整）到 ndigits 位小数——复现截图口径，非四舍五入。"""
     factor = 10 ** ndigits
-    return math.trunc(value * factor) / factor
+    return math.trunc(round(value * factor, 9)) / factor
 
 
 def n_orders(delta_qty: float, trade_size: float) -> float:

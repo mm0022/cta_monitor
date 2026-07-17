@@ -22,6 +22,14 @@ def test_trunc_to():
     assert trunc_to(2.0, 1) == 2.0
 
 
+def test_trunc_to_two_decimals_no_float_drift():
+    assert trunc_to(0.29, 2) == 0.29
+    assert trunc_to(2.01, 2) == 2.01
+    assert trunc_to(4.35, 2) == 4.35
+    # 仍是截断，不进位
+    assert trunc_to(1.239, 2) == 1.23
+
+
 def test_n_orders_truncates():
     # DOGE：30939.1 / 2500 = 12.3756 -> 截断 1 位 = 12.3（图值）
     assert n_orders(30939.1, 2500.0) == 12.3
