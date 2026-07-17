@@ -1,3 +1,5 @@
+import pytest
+
 from cta_monitor.biyi import parse_financials
 from cta_monitor.models import BiyiRow
 
@@ -30,6 +32,14 @@ def test_parse_financials_basic():
     assert r0.trade_size == 2500.0
     assert r0.signal_time_ms == 1000
     assert r0.txn_status == "stop"
+    assert r0.tracing_id == "tr1"
     assert r0.current_inventory == -97000.0
     assert r0.target_inventory == -97875.9
     assert rows[1].txn_status == "running"
+
+
+def test_parse_financials_missing_column_fail_loud():
+    # 表头缺 TRADE_SIZE 列 -> fail-loud KeyError（不 silent）
+    bad_header = "TICKER|str,VENUE|str,SIGNAL_TIME|num,TASK_STATE|str,TRACING_ID|str,CURRENT_INVENTORY|num,TARGET_INVENTORY|num"
+    with pytest.raises(KeyError):
+        parse_financials("spec1", "acc1", [bad_header, "DOGE/USDT,BINANCE,1000,stop,tr1,-1,-1"], COLS)

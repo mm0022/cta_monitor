@@ -15,7 +15,7 @@ FINANCIALS_COLS: dict[str, str] = {
     "signal_time": "SIGNAL_TIME",           # 信号时间，待探针确认
     "txn_status": "TASK_STATE",             # 事务状态，待探针确认
     "tracing_id": "TRACING_ID",             # 追踪ID，待探针确认
-    "current_inventory": "CURRENT_INVENTORY",  # 当前库存，待探针确认
+    "current_inventory": "INVENTORY_BASE",  # 当前库存(=INVENTORY_BASE)，已确认
     "target_inventory": "TARGET_INVENTORY",    # 目标库存，待探针确认
 }
 
@@ -69,6 +69,7 @@ class BiyiClient:
         resp = requests.post(
             self._cfg.login_url,
             json={"userName": self._cfg.user, "passwd": self._cfg.passwd},
+            timeout=30,
         )
         resp.raise_for_status()
         self._token = resp.json()["data"]["token"]
@@ -82,7 +83,7 @@ class BiyiClient:
     def strategy_list_all(self) -> dict[str, str]:
         """返回 {strategySpec: accountNames[0]}，仅 CTA/CTA_EMS 且 RUNNING。"""
         url = f"{self._cfg.base_url}/strategy/list?curPage=0&pageSize=100"
-        resp = requests.get(url, headers=self._headers())
+        resp = requests.get(url, headers=self._headers(), timeout=30)
         resp.raise_for_status()
         data = resp.json().get("data") or []
         out: dict[str, str] = {}
@@ -93,7 +94,7 @@ class BiyiClient:
 
     def fetch_financials(self, strategy_name: str, account: str) -> list[BiyiRow]:
         url = f"{self._cfg.base_url}/api/strategies/{strategy_name}/financials"
-        resp = requests.get(url, headers=self._headers())
+        resp = requests.get(url, headers=self._headers(), timeout=30)
         resp.raise_for_status()
         table = resp.json()["data"]["tableData"]
         return parse_financials(strategy_name, account, table, FINANCIALS_COLS)
