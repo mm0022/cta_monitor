@@ -1,7 +1,19 @@
 """ReportRow 列表 → 等宽对齐文本表（Slack 代码块用）。"""
 from __future__ import annotations
 
+import unicodedata
+
 from cta_monitor.models import ReportRow, RowStatus
+
+
+def _disp_width(s: str) -> int:
+    """显示宽度：CJK 全角/宽字符按 2 列计，其余按 1 列。"""
+    return sum(2 if unicodedata.east_asian_width(c) in ("W", "F") else 1 for c in s)
+
+
+def _pad(cell: str, width: int) -> str:
+    """按显示宽度右侧补空格到 width。"""
+    return cell + " " * (width - _disp_width(cell))
 
 _HEADERS = [
     "状态", "TICKER", "mark", "单笔粒度", "单笔报单u", "币量变化", "delta",
@@ -45,10 +57,10 @@ def _cells(r: ReportRow) -> list[str]:
 def render_table_text(rows: list[ReportRow], title: str) -> str:
     """标题 + 等宽表（列按最大宽度左对齐，' | ' 分隔）。"""
     matrix = [_HEADERS] + [_cells(r) for r in rows]
-    widths = [max(len(row[c]) for row in matrix) for c in range(len(_HEADERS))]
+    widths = [max(_disp_width(row[c]) for row in matrix) for c in range(len(_HEADERS))]
 
     def line(cells: list[str]) -> str:
-        return " | ".join(cell.ljust(widths[c]) for c, cell in enumerate(cells))
+        return " | ".join(_pad(cell, widths[c]) for c, cell in enumerate(cells))
 
     sep = "-+-".join("-" * w for w in widths)
     body = [line(_HEADERS), sep] + [line(row) for row in matrix[1:]]
