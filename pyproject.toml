@@ -8,6 +8,7 @@ dependencies = [
     "pandas>=2.0",
     "requests>=2.31",
     "nexus-data-hub-sdk",
+    "h2>=4.3.0",
 ]
 
 [project.optional-dependencies]
