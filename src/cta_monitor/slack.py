@@ -7,11 +7,18 @@ from cta_monitor.config import SlackConfig
 
 
 def chunk_code_block(text: str, limit: int = 3800) -> list[str]:
-    """按行装箱，每片包在 ``` 代码块里，单片正文不超 limit。"""
+    """按行装箱，每片包在 ``` 代码块里，单片正文不超 limit。超长单行会被硬切。"""
+    # 先把超长单行硬切成 <=limit 的片段，保证不变量
+    lines: list[str] = []
+    for ln in text.splitlines():
+        while len(ln) > limit:
+            lines.append(ln[:limit])
+            ln = ln[limit:]
+        lines.append(ln)
     chunks: list[str] = []
     cur: list[str] = []
     cur_len = 0
-    for ln in text.splitlines():
+    for ln in lines:
         if cur and cur_len + len(ln) + 1 > limit:
             chunks.append("```\n" + "\n".join(cur) + "\n```")
             cur, cur_len = [], 0

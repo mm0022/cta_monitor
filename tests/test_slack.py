@@ -15,6 +15,15 @@ def test_chunk_wraps_and_splits():
         assert len(c) <= 200 + 10  # 围栏余量
 
 
+def test_chunk_oversized_single_line_respects_limit():
+    chunks = chunk_code_block("x" * 5000, limit=3800)
+    assert len(chunks) >= 2
+    for c in chunks:
+        body = c[len("```\n"):-len("\n```")]
+        assert len(body) <= 3800
+    assert sum(c.count("x") for c in chunks) == 5000  # 内容不丢
+
+
 @patch("cta_monitor.slack.requests")
 def test_post_text_posts_to_webhook(mock_req):
     mock_req.post.return_value.raise_for_status.return_value = None
@@ -22,6 +31,7 @@ def test_post_text_posts_to_webhook(mock_req):
     args, kwargs = mock_req.post.call_args
     assert args[0] == CFG.webhook_url
     assert kwargs["json"]["text"] == "hello"
+    mock_req.post.return_value.raise_for_status.assert_called_once()
 
 
 @patch("cta_monitor.slack.requests")
