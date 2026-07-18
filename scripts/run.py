@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from cta_monitor.config import load_config
 from cta_monitor.excel import write_report_excel
 from cta_monitor.pipeline import run_once
-from cta_monitor.render import render_table_text
+from cta_monitor.render import render_account_summary, render_table_text
 from cta_monitor.slack import SlackClient
 
 _BEIJING = timezone(timedelta(hours=8))
@@ -30,8 +30,9 @@ def main() -> None:
 
     title = f"CTA 执行监控 {stamp}｜{result.summary}"
 
-    # 1) 发 Slack
-    slack.post_table(title, render_table_text(result.rows, title))
+    # 1) 发 Slack：先账户汇总（maker/完成度概览），再明细
+    slack.post_table(title, render_account_summary(result.rows))
+    slack.post_table("明细", render_table_text(result.rows, "明细"))
 
     # 2) 存 Excel
     os.makedirs("output", exist_ok=True)

@@ -19,7 +19,7 @@ def _pad(cell: str, width: int) -> str:
 # 列与 Excel 导出保持一致（14 列；不含 报单笔数/结束时间/开始时间）
 _HEADERS = [
     "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u",
-    "决策持仓", "目标", "delta", "maker%", "执行ms",
+    "决策持仓", "目标", "delta", "deltaU", "maker%", "执行ms",
     "未完成量", "未完成u", "未完成%",
 ]
 
@@ -79,7 +79,7 @@ def _cells(r: ReportRow) -> list[str]:
         _STATUS_TAG.get(r.status, r.status.value),
         r.ticker,
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),
-        _q(cur), _q(tgt), _q(r.delta_qty),
+        _q(cur), _q(tgt), _q(r.delta_qty), _fmt(r.delta_u),
         "" if r.maker_ratio is None else f"{r.maker_ratio * 100:.2f}%",   # maker% 两位小数
         _fmt(r.duration_ms),
         _q(r.twap_unfilled_qty), _q(r.unfilled_u),
@@ -87,14 +87,39 @@ def _cells(r: ReportRow) -> list[str]:
     ]
 
 
-def render_table_text(rows: list[ReportRow], title: str) -> str:
-    """标题 + 等宽表（列按最大宽度左对齐，' | ' 分隔）。"""
-    matrix = [_HEADERS] + [_cells(r) for r in rows]
-    widths = [max(_disp_width(row[c]) for row in matrix) for c in range(len(_HEADERS))]
+def _grid(headers: list[str], rows_cells: list[list[str]], title: str) -> str:
+    """通用等宽表：表头 + 分隔线 + 数据行，按显示宽度对齐。"""
+    matrix = [headers] + rows_cells
+    widths = [max(_disp_width(row[c]) for row in matrix) for c in range(len(headers))]
 
     def line(cells: list[str]) -> str:
         return " | ".join(_pad(cell, widths[c]) for c, cell in enumerate(cells))
 
     sep = "-+-".join("-" * w for w in widths)
-    body = [line(_HEADERS), sep] + [line(row) for row in matrix[1:]]
-    return title + "\n" + "\n".join(body)
+    return title + "\n" + "\n".join([line(headers), sep] + [line(r) for r in rows_cells])
+
+
+def render_table_text(rows: list[ReportRow], title: str) -> str:
+    """标题 + 明细等宽表。"""
+    return _grid(_HEADERS, [_cells(r) for r in rows], title)
+
+
+_SUMMARY_HEADERS = ["账户", "统计", "已执行", "平均maker%", "平均完成度%", "完成度最低"]
+
+
+def render_account_summary(rows: list[ReportRow], title: str = "按账户汇总（maker比例 / 完成度）") -> str:
+    """按账户的简报：平均 maker%、平均完成度%、完成度最低的币。"""
+    from cta_monitor.metrics import account_summary
+
+    def pct(v) -> str:
+        return "" if v is None else f"{v:.2f}%"
+
+    cells = []
+    for s in account_summary(rows):
+        worst = f"{s['worst_ticker']} {pct(s['worst_completion'])}" if s["worst_ticker"] else ""
+        cells.append([
+            short_account(s["account"]),
+            str(s["n"]), str(s["executed"]),
+            pct(s["avg_maker"]), pct(s["avg_completion"]), worst,
+        ])
+    return _grid(_SUMMARY_HEADERS, cells, title)

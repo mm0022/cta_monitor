@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import pandas as pd
 
-from cta_monitor.metrics import trunc_to
+from cta_monitor.metrics import account_summary, trunc_to
 from cta_monitor.models import ReportRow
 from cta_monitor.render import short_account
 
@@ -34,11 +34,28 @@ def write_report_excel(rows: list[ReportRow], out_path: str) -> int:
             "决策时持仓(cur)": _t6(cur),
             "目标(target)": _t6(tgt),
             "delta币量(F)": _t6(r.delta_qty),
+            "delta金额u": r.delta_u,
             "maker%": None if r.maker_ratio is None else round(r.maker_ratio * 100, 2),
             "执行ms(K)": r.duration_ms,
             "twap未完成量(L)": _t6(r.twap_unfilled_qty),
             "未完成金额u(M)": _t6(r.unfilled_u),
             "未完成比例%(N)": r.incomplete_pct,
         })
-    pd.DataFrame(records).to_excel(out_path, index=False)
+
+    summary = [
+        {
+            "账户": short_account(s["account"]),
+            "统计币数": s["n"],
+            "已执行": s["executed"],
+            "平均maker%": s["avg_maker"],
+            "平均完成度%": s["avg_completion"],
+            "完成度最低-币": s["worst_ticker"],
+            "完成度最低%": s["worst_completion"],
+        }
+        for s in account_summary(rows)
+    ]
+
+    with pd.ExcelWriter(out_path) as writer:
+        pd.DataFrame(records).to_excel(writer, sheet_name="明细", index=False)
+        pd.DataFrame(summary).to_excel(writer, sheet_name="账户汇总", index=False)
     return len(records)

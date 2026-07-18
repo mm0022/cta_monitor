@@ -37,6 +37,40 @@ def incomplete_pct(unfilled_qty: float, delta_qty: float) -> float:
 SHOULD_QUERY_STATUSES: set[RowStatus] = {RowStatus.OK, RowStatus.SIGNAL_TIME_MISMATCH}
 
 
+def account_summary(rows: list["ReportRow"]) -> list[dict]:
+    """按账户聚合执行质量（maker比例 + 完成度），供简报展示。纯函数。
+    完成度 = 100 − 未完成比例%；平均只对「已执行」行（maker_ratio 非空）统计。
+    返回按账户排序的 dict 列表。"""
+    from collections import defaultdict
+
+    groups: dict[str, list] = defaultdict(list)
+    for r in rows:
+        groups[r.account].append(r)
+
+    out: list[dict] = []
+    for acc in sorted(groups):
+        rs = groups[acc]
+        execed = [r for r in rs if r.maker_ratio is not None]
+        makers = [r.maker_ratio * 100 for r in execed]
+        comps = [
+            (r.ticker, round(100 - r.incomplete_pct, 2))
+            for r in execed if r.incomplete_pct is not None
+        ]
+        worst = min(comps, key=lambda x: x[1]) if comps else None
+        out.append({
+            "account": acc,
+            "n": len(rs),
+            "executed": len(execed),
+            "avg_maker": round(sum(makers) / len(makers), 2) if makers else None,
+            "avg_completion": (
+                round(sum(c for _, c in comps) / len(comps), 2) if comps else None
+            ),
+            "worst_ticker": worst[0] if worst else "",
+            "worst_completion": worst[1] if worst else None,
+        })
+    return out
+
+
 def classify_status(
     biyi: BiyiRow, sig: SignalRecord | None, *, min_notional_u: float
 ) -> RowStatus:
@@ -66,6 +100,7 @@ def build_row(
             ticker=biyi.ticker, account=biyi.account, mark_price=None, trade_size=biyi.trade_size,
             order_notional_u=None, qty_change="", delta_qty=None, n_orders=None,
             maker_ratio=None, end_ms=None, start_ms=None, duration_ms=None,
+            delta_u=None,
             twap_unfilled_qty=None, unfilled_u=None, incomplete_pct=None,
             status=status, note="datahub 无信号",
         )
@@ -82,6 +117,7 @@ def build_row(
         order_notional_u=trunc_to(biyi.trade_size * sig.mark_price, 0),  # 图为整数、截断
         qty_change=f"{sig.current_qty_at_decision}→{sig.target_qty}",
         delta_qty=sig.delta_qty,
+        delta_u=round(sig.delta_qty * sig.mark_price, 1),
         n_orders=n_orders(sig.delta_qty, biyi.trade_size),
         maker_ratio=agg.maker_ratio if agg else None,
         end_ms=agg.end_ms if agg else None,

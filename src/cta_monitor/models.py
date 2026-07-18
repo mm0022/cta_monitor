@@ -70,6 +70,7 @@ class ReportRow:
     order_notional_u: float | None      # D
     qty_change: str                     # E  "cur→target"
     delta_qty: float | None             # F
+    delta_u: float | None               # F 的 U 量 = delta_qty × mark_price（1 位小数）
     n_orders: float | None              # G
     maker_ratio: float | None           # H
     end_ms: int | None                  # I

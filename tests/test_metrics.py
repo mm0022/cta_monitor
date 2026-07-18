@@ -8,7 +8,8 @@ from cta_monitor.metrics import (
     build_row,
     SHOULD_QUERY_STATUSES,
 )
-from cta_monitor.models import BiyiRow, SignalRecord, TradeAgg, RowStatus
+from cta_monitor.metrics import account_summary
+from cta_monitor.models import BiyiRow, ReportRow, SignalRecord, TradeAgg, RowStatus
 
 
 def test_coin_and_sym():
@@ -141,3 +142,28 @@ def test_build_row_no_agg_leaves_db_columns_none():
     assert row.twap_unfilled_qty == 1376.0
     assert row.incomplete_pct == 4.45
     assert row.status == RowStatus.NO_TRADES
+
+
+def _rr(account, maker, incomplete, status=RowStatus.OK, ticker="X/USDT"):
+    return ReportRow(
+        ticker=ticker, account=account, mark_price=1.0, trade_size=1.0,
+        order_notional_u=1.0, qty_change="0→0", delta_qty=1.0, delta_u=1.0, n_orders=1.0,
+        maker_ratio=maker, end_ms=None, start_ms=None, duration_ms=None,
+        twap_unfilled_qty=None, unfilled_u=None, incomplete_pct=incomplete, status=status,
+    )
+
+
+def test_account_summary():
+    rows = [
+        _rr("accA", 0.80, 2.0, ticker="BTC/USDT"),
+        _rr("accA", 0.60, 20.0, ticker="DOGE/USDT"),
+        _rr("accA", None, 100.0, status=RowStatus.SMALL_NOTIONAL, ticker="SOL/USDT"),
+        _rr("accB", 1.00, 0.0, ticker="ETH/USDT"),
+    ]
+    s = {d["account"]: d for d in account_summary(rows)}
+    a = s["accA"]
+    assert a["n"] == 3 and a["executed"] == 2          # SOL 未执行(maker None)不计均值
+    assert a["avg_maker"] == 70.0                       # (80+60)/2
+    assert a["avg_completion"] == 89.0                  # 完成度=100-未完成: (98+80)/2
+    assert a["worst_ticker"] == "DOGE/USDT" and a["worst_completion"] == 80.0
+    assert s["accB"]["avg_completion"] == 100.0

@@ -5,7 +5,7 @@ from cta_monitor.render import render_table_text
 def _row(status=RowStatus.OK, ticker="DOGE/USDT", account="binance_cta_acc1"):
     return ReportRow(
         ticker=ticker, account=account, mark_price=0.07187, trade_size=2500.0,
-        order_notional_u=179.0, qty_change="-128815.0→-97875.9", delta_qty=30939.1,
+        order_notional_u=179.0, qty_change="-128815.0→-97875.9", delta_qty=30939.1, delta_u=2223.6,
         n_orders=12.3, maker_ratio=0.75, end_ms=1783987839911, start_ms=1783987729868,
         duration_ms=110043, twap_unfilled_qty=1376.0, unfilled_u=98.9, incomplete_pct=4.45,
         status=status,
@@ -52,7 +52,7 @@ def test_all_status_tags_render():
 def test_none_fields_render_empty_not_none():
     none_row = ReportRow(
         ticker="X/USDT", account="acc", mark_price=None, trade_size=None, order_notional_u=None,
-        qty_change="", delta_qty=None, n_orders=None, maker_ratio=None,
+        qty_change="", delta_qty=None, delta_u=None, n_orders=None, maker_ratio=None,
         end_ms=None, start_ms=None, duration_ms=None, twap_unfilled_qty=None,
         unfilled_u=None, incomplete_pct=None, status=RowStatus.NO_SIGNAL,
     )
