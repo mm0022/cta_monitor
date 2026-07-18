@@ -28,7 +28,7 @@ from cta_monitor.config import Config, PgConfig, BiyiConfig, DatahubConfig, Slac
 from cta_monitor.models import BiyiRow, SignalRecord, RowStatus, TradeAgg
 
 
-def _cfg(accounts=()):
+def _cfg(accounts=(), portfolio_accounts=None):
     return Config(
         pg=PgConfig("h", "1", "u", "p", "shiji"),
         biyi=BiyiConfig("lu", "bu", "u", "pw"),
@@ -37,6 +37,7 @@ def _cfg(accounts=()):
         accounts=tuple(accounts),
         min_notional_u=10.0,
         freshness_hours=1.0,
+        portfolio_accounts=portfolio_accounts or {},
     )
 
 
@@ -85,6 +86,29 @@ def test_run_once_stale_gate_returns_no_new_signal():
     assert res.stale is True
     assert res.rows == []
     assert "没有新信号" in res.summary
+
+
+def test_run_once_portfolio_account_uses_per_token(monkeypatch):
+    # 组合级账户：走 latest_portfolio_signals（拆 per_token），不走 latest_signal
+    biyi = MagicMock()
+    biyi.strategy_list_all.return_value = {"specP": "accP"}
+    biyi.fetch_financials.side_effect = lambda spec, acc: [
+        _biyi_row("DOGE/USDT", acc, spec, trade_size=10.0, signal_time_ms=_FRESH_TS),
+        _biyi_row("BTC/USDT", acc, spec, trade_size=10.0, signal_time_ms=_FRESH_TS),
+    ]
+    datahub = MagicMock()
+    datahub.latest_portfolio_signals.return_value = {
+        "doge": _pipe_sig(ts=_FRESH_TS), "btc": _pipe_sig(ts=_FRESH_TS),
+    }
+    monkeypatch.setattr(pipeline_mod, "fetch_trades", lambda *a, **k: [])
+    monkeypatch.setattr(pipeline_mod, "aggregate_trades", lambda rows: None)
+    res = run_once(
+        _cfg(portfolio_accounts={"accP": "xs_carry_daily"}),
+        _NOW, biyi=biyi, datahub=datahub,
+    )
+    datahub.latest_portfolio_signals.assert_called_once_with("accP", "xs_carry_daily")
+    datahub.latest_signal.assert_not_called()
+    assert sorted(r.ticker for r in res.rows) == ["BTC/USDT", "DOGE/USDT"]
 
 
 def test_run_once_drops_rows_with_stale_signal():

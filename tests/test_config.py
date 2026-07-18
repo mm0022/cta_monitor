@@ -26,6 +26,8 @@ webhook_url="https://hooks.slack.com/services/x"
 accounts=["a1"]
 min_notional_u=10.0
 freshness_hours=1.0
+[portfolio_accounts]
+accP="xs_carry_daily"
 """,
         encoding="utf-8",
     )
@@ -34,3 +36,4 @@ freshness_hours=1.0
     assert cfg.datahub.prefix == "CYBERX_PROD"
     assert cfg.accounts == ("a1",)
     assert cfg.min_notional_u == 10.0
+    assert cfg.portfolio_accounts == {"accP": "xs_carry_daily"}

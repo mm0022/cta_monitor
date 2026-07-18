@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -43,6 +43,10 @@ class Config:
     accounts: tuple[str, ...]
     min_notional_u: float
     freshness_hours: float
+    # 组合级发布器账户：account → portfolio_id。
+    # 在此表中的账户走 PORTFOLIO_PUBLISHER（读一个组合 key 拆 per_token）；
+    # 其余走 CTA_SIGNAL_PUBLISHER（每币一个 key）。
+    portfolio_accounts: dict[str, str] = field(default_factory=dict)
 
 
 def load_config(path: str) -> Config:
@@ -57,4 +61,5 @@ def load_config(path: str) -> Config:
         accounts=tuple(mon.get("accounts", [])),
         min_notional_u=float(mon.get("min_notional_u", 10.0)),
         freshness_hours=float(mon.get("freshness_hours", 1.0)),
+        portfolio_accounts=dict(raw.get("portfolio_accounts", {})),
     )

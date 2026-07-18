@@ -50,10 +50,20 @@ def run_once(
         strategies = {s: a for s, a in strategies.items() if a in cfg.accounts}
 
     # 2) 逐策略逐 symbol：biyi 行 + datahub 信号
+    #    组合级账户(portfolio_accounts)：一次读组合 key 拆 per_token；其余按币逐个读 CTA key
     pairs: list[tuple] = []  # (BiyiRow, SignalRecord | None)
     for spec, account in strategies.items():
+        portfolio_id = cfg.portfolio_accounts.get(account)
+        port_sigs = (
+            datahub.latest_portfolio_signals(account, portfolio_id)
+            if portfolio_id else None
+        )
         for b in biyi.fetch_financials(spec, account):
-            sig = datahub.latest_signal(account, coin_from_ticker(b.ticker))
+            coin = coin_from_ticker(b.ticker)
+            if port_sigs is not None:
+                sig = port_sigs.get(coin)
+            else:
+                sig = datahub.latest_signal(account, coin)
             pairs.append((b, sig))
 
     # 3) 无新信号闸门（全部信号都超出 freshness 窗 → 整体跳过）
