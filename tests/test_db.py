@@ -33,7 +33,7 @@ def test_aggregate_timing_spans_all_events_maker_only_fills():
     assert agg.start_ms == 900 and agg.end_ms == 2000  # 跨全部事件
     assert agg.duration_ms == 1100
     assert abs(agg.maker_ratio - 20 / 40) < 1e-9        # 仅 FULL_EXEC 计 maker
-    assert agg.order_count == 2                          # FULL_EXEC 去重 order_id: o1,o2（o3 是撤单不计）
+    assert agg.order_count == 3                          # 全部事件去重 order_id: o1,o2,o3（含未成交/撤单）
 
 
 def test_signal_ms_to_utc_str():
