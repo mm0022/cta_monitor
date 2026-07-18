@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from cta_monitor.biyi import BiyiClient
 from cta_monitor.config import Config
 from cta_monitor.datahub import DatahubReader
-from cta_monitor.db import aggregate_trades, fetch_trades, signal_ms_to_utc_str
+from cta_monitor.db import aggregate_trades, fetch_events_batch, signal_ms_to_utc_str
 from cta_monitor.metrics import (
     SHOULD_QUERY_STATUSES,
     build_row,
@@ -72,23 +72,29 @@ def run_once(
             True, [], f"最近 {cfg.freshness_hours:g} 小时内没有新信号在运行"
         )
 
-    # 4) 逐行判定 → 该查 PG 的查 → 组行
-    #    只统计「信号时间在 freshness_hours 内」的币：无信号、或信号超窗（≥freshness）→ 不进表
+    # 4) 逐行判定；只统计「信号时间在 freshness_hours 内」的币（无信号/超窗 → 不进表）
     cutoff_ms = now_ms - int(cfg.freshness_hours * 3600_000)
-    rows: list[ReportRow] = []
-    for b, sig in pairs:
-        if sig is None or sig.signal_bar_ts_ms < cutoff_ms:
-            continue  # datahub 无信号 / 信号超出 3h 窗 → 不纳入本轮报告
+    fresh = [
+        (b, sig) for b, sig in pairs
+        if sig is not None and sig.signal_bar_ts_ms >= cutoff_ms
+    ]
+    entries = []  # (b, sig, status, sym)
+    requests = []  # (account_no, sym, signal_time_utc) —— 需查 PG 的
+    for b, sig in fresh:
         status = classify_status(b, sig, min_notional_u=cfg.min_notional_u)
+        sym = sym_from_ticker(b.ticker, b.venue)
+        entries.append((b, sig, status, sym))
+        if status in SHOULD_QUERY_STATUSES:
+            requests.append((b.account, sym, signal_ms_to_utc_str(sig.signal_bar_ts_ms)))
+
+    # 一次连接、一条查询批量拉成交事件，再按 (account, sym) 分发聚合
+    events = fetch_events_batch(cfg.pg, requests)
+
+    rows: list[ReportRow] = []
+    for b, sig, status, sym in entries:
         agg = None
         if status in SHOULD_QUERY_STATUSES:
-            trades = fetch_trades(
-                cfg.pg,
-                b.account,
-                sym_from_ticker(b.ticker, b.venue),
-                signal_ms_to_utc_str(sig.signal_bar_ts_ms),
-            )
-            agg = aggregate_trades(trades)
+            agg = aggregate_trades(events.get((b.account, sym), []))
             if agg is None and status == RowStatus.OK:
                 status = RowStatus.NO_TRADES
         rows.append(build_row(b, sig, agg, status))

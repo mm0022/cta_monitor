@@ -100,8 +100,7 @@ def test_run_once_portfolio_account_uses_per_token(monkeypatch):
     datahub.latest_portfolio_signals.return_value = {
         "doge": _pipe_sig(ts=_FRESH_TS), "btc": _pipe_sig(ts=_FRESH_TS),
     }
-    monkeypatch.setattr(pipeline_mod, "fetch_trades", lambda *a, **k: [])
-    monkeypatch.setattr(pipeline_mod, "aggregate_trades", lambda rows: None)
+    monkeypatch.setattr(pipeline_mod, "fetch_events_batch", lambda pg, reqs: {})
     res = run_once(
         _cfg(portfolio_accounts={"accP": "xs_carry_daily"}),
         _NOW, biyi=biyi, datahub=datahub,
@@ -137,8 +136,7 @@ def test_run_once_ok_demotes_to_no_trades_when_no_fills(monkeypatch):
     ]
     datahub = MagicMock()
     datahub.latest_signal.return_value = _pipe_sig(ts=_FRESH_TS)
-    monkeypatch.setattr(pipeline_mod, "fetch_trades", lambda *a, **k: [])
-    monkeypatch.setattr(pipeline_mod, "aggregate_trades", lambda rows: None)
+    monkeypatch.setattr(pipeline_mod, "fetch_events_batch", lambda pg, reqs: {})
     res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
     assert [r.status for r in res.rows] == [RowStatus.NO_TRADES]
 
@@ -151,7 +149,7 @@ def test_run_once_ok_fills_maker_from_agg(monkeypatch):
     ]
     datahub = MagicMock()
     datahub.latest_signal.return_value = _pipe_sig(ts=_FRESH_TS)
-    monkeypatch.setattr(pipeline_mod, "fetch_trades", lambda *a, **k: [object()])
+    monkeypatch.setattr(pipeline_mod, "fetch_events_batch", lambda pg, reqs: {("accP", "x"): [object()]})
     monkeypatch.setattr(pipeline_mod, "aggregate_trades",
                         lambda rows: TradeAgg(maker_ratio=0.5, start_ms=1, end_ms=2, duration_ms=1))
     res = run_once(_cfg(), _NOW, biyi=biyi, datahub=datahub)
