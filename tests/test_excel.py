@@ -6,7 +6,7 @@ from cta_monitor.models import ReportRow, RowStatus
 _COLS = [
     "账户", "状态", "TICKER", "mark_price", "单笔粒度", "单笔报单u(D)",
     "决策时持仓(cur)", "目标(target)", "delta币量(F)", "delta金额u", "maker%", "执行ms(K)",
-    "twap未完成量(L)", "未完成金额u(M)", "未完成比例%(N)",
+    "执行单数", "twap未完成量(L)", "未完成金额u(M)", "未完成比例%(N)",
 ]
 
 

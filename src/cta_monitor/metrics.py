@@ -128,4 +128,5 @@ def build_row(
         incomplete_pct=incomplete,
         status=status,
         note="",
+        order_count=agg.order_count if agg else None,
     )

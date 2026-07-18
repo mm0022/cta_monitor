@@ -19,7 +19,7 @@ def _pad(cell: str, width: int) -> str:
 # 列与 Excel 导出保持一致（14 列；不含 报单笔数/结束时间/开始时间）
 _HEADERS = [
     "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u",
-    "决策持仓", "目标", "delta", "deltaU", "maker%", "执行ms",
+    "决策持仓", "目标", "delta", "deltaU", "maker%", "执行ms", "执行单数",
     "未完成量", "未完成u", "未完成%",
 ]
 
@@ -81,7 +81,7 @@ def _cells(r: ReportRow) -> list[str]:
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),
         _q(cur), _q(tgt), _q(r.delta_qty), _fmt(r.delta_u),
         "" if r.maker_ratio is None else f"{r.maker_ratio * 100:.2f}%",   # maker% 两位小数
-        _fmt(r.duration_ms),
+        _fmt(r.duration_ms), _fmt(r.order_count),
         _q(r.twap_unfilled_qty), _q(r.unfilled_u),
         "" if r.incomplete_pct is None else f"{r.incomplete_pct:.2f}%",   # 未完成% 两位小数
     ]

@@ -21,18 +21,19 @@ def test_aggregate_maker_ratio_by_notional():
 
 
 def test_aggregate_timing_spans_all_events_maker_only_fills():
-    # 执行窗口跨全部事件（下单/撤单）；maker 只从 FULL_EXEC 成交算
+    # 执行窗口跨全部事件（下单/撤单）；maker 与执行单数 只从 FULL_EXEC 成交算
     rows = [
-        TradeRow(is_maker=0, quantity=0, price=0, event_time=900, event_type="NEW"),
-        TradeRow(is_maker=1, quantity=10, price=2.0, event_time=1000, event_type="FULL_EXEC"),
-        TradeRow(is_maker=0, quantity=10, price=2.0, event_time=1500, event_type="FULL_EXEC"),
-        TradeRow(is_maker=0, quantity=0, price=0, event_time=2000, event_type="CANCEL"),
+        TradeRow(is_maker=0, quantity=0, price=0, event_time=900, event_type="NEW", order_id="o1"),
+        TradeRow(is_maker=1, quantity=10, price=2.0, event_time=1000, event_type="FULL_EXEC", order_id="o1"),
+        TradeRow(is_maker=0, quantity=10, price=2.0, event_time=1500, event_type="FULL_EXEC", order_id="o2"),
+        TradeRow(is_maker=0, quantity=0, price=0, event_time=2000, event_type="CANCEL", order_id="o3"),
     ]
     agg = aggregate_trades(rows)
     assert agg is not None
     assert agg.start_ms == 900 and agg.end_ms == 2000  # 跨全部事件
     assert agg.duration_ms == 1100
     assert abs(agg.maker_ratio - 20 / 40) < 1e-9        # 仅 FULL_EXEC 计 maker
+    assert agg.order_count == 2                          # FULL_EXEC 去重 order_id: o1,o2（o3 是撤单不计）
 
 
 def test_signal_ms_to_utc_str():

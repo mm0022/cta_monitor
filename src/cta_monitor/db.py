@@ -18,7 +18,7 @@ from cta_monitor.models import TradeAgg, TradeRow
 # maker 比例只从 FULL_EXEC 成交子集算（见 aggregate_trades）。
 _BATCH_SQL = """
 SELECT s.account_no, s.sym, s.event_type, s.is_maker,
-       s.exchange_quantity, s.exchange_price, s.event_time, s.app_receive
+       s.exchange_quantity, s.exchange_price, s.event_time, s.app_receive, s.order_id
 FROM order_event s
 WHERE s.app_receive > %(min_time)s
   AND s.account_no = ANY(%(accounts)s)
@@ -41,6 +41,7 @@ def aggregate_trades(rows: list[TradeRow]) -> TradeAgg | None:
         start_ms=start_ms,
         end_ms=end_ms,
         duration_ms=end_ms - start_ms,
+        order_count=len({r.order_id for r in fills if r.order_id}),
     )
 
 
@@ -95,6 +96,7 @@ def fetch_events_batch(
             quantity=float(r[4]) if r[4] is not None else 0.0,
             price=float(r[5]) if r[5] is not None else 0.0,
             event_time=int(r[6]),
+            order_id=str(r[8]) if r[8] is not None else "",
         ))
     # 保证请求过的 key 都有条目（可能为空列表）
     return {k: out.get(k, []) for k in st_map}

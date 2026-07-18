@@ -41,6 +41,7 @@ class TradeRow:
     price: float              # exchange_price（非成交事件可能为 0）
     event_time: int           # ms epoch
     event_type: str = "FULL_EXEC"  # 事件类型；maker 只统计 FULL_EXEC，时间跨全部事件
+    order_id: str = ""        # 订单号；执行订单数 = FULL_EXEC 去重 order_id 数
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,7 @@ class TradeAgg:
     start_ms: int             # min(event_time)
     end_ms: int               # max(event_time)
     duration_ms: int          # end - start
+    order_count: int = 0      # 执行订单数 = FULL_EXEC 去重 order_id 数
 
 
 class RowStatus(str, Enum):
@@ -81,3 +83,4 @@ class ReportRow:
     incomplete_pct: float | None        # N（未完成比例 %）
     status: RowStatus
     note: str = ""
+    order_count: int | None = None      # 执行订单数（FULL_EXEC 去重 order_id）
