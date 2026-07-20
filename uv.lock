@@ -161,7 +161,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "h2", specifier = ">=4.3.0" },
-    { name = "nexus-data-hub-sdk", editable = "/Users/mac/dev/alpha_copy/vendor/nexus-data-hub-sdk" },
+    { name = "nexus-data-hub-sdk", editable = "vendor/nexus-data-hub-sdk" },
     { name = "openpyxl", specifier = ">=3.1.5" },
     { name = "pandas", specifier = ">=2.0" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.1" },
@@ -277,7 +277,7 @@ wheels = [
 
 [[package]]
 name = "nexus-data-hub-sdk"
-source = { editable = "/Users/mac/dev/alpha_copy/vendor/nexus-data-hub-sdk" }
+source = { editable = "vendor/nexus-data-hub-sdk" }
 dependencies = [
     { name = "boto3" },
     { name = "httpx" },

@@ -1,0 +1,71 @@
+name: Check package version
+on:
+  pull_request_target:
+    branches: 
+      - master
+jobs:
+  check_version:
+    runs-on: ubuntu-latest
+    steps:
+      - 
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - 
+        uses: snok/install-poetry@v1
+        with:
+          version: 1.6.1
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+      - 
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+      - 
+        run: |
+          BASE_VERSION=$(poetry version -s)
+          echo "BASE_VERSION=${BASE_VERSION}" >> $GITHUB_ENV
+          BASE_BRANCH=${{ github.event.pull_request.base.ref }}
+          echo "BASE_BRANCH=${BASE_BRANCH}" >> $GITHUB_ENV
+      - 
+        uses: actions/checkout@v3
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - 
+        run: |
+          PR_VERSION=$(poetry version -s)
+          echo "PR_VERSION=${PR_VERSION}" >> $GITHUB_ENV
+      - 
+        run: |
+          echo "base branch is: [${{ env.BASE_BRANCH }}]"
+          echo "base version is: [${{ env.BASE_VERSION }}]"
+          echo "pr version is: [${{ env.PR_VERSION }}]"
+      - 
+        run: |
+          wget -O /usr/local/bin/semver https://raw.githubusercontent.com/fsaintjacques/semver-tool/master/src/semver
+          chmod +x /usr/local/bin/semver
+      - 
+        if: ${{ github.event.pull_request.base.ref == 'master' }} 
+        run: |
+          PREREL=$(semver get prerel ${{ env.PR_VERSION }})
+          if [ ! -z "${PREREL}" ]; then
+            echo "A PR targeted at the master branch MUST not use a prerelease version."
+            exit 1
+          fi
+      - 
+        if: ${{ github.event.pull_request.base.ref != 'master' }}
+        run: |
+          PREREL=$(semver get prerel ${{ env.PR_VERSION }})
+          if [ -z "${PREREL}" ]; then
+            echo "A PR targeted at the dev branches MUST use a prerelease version."
+            exit 1
+          fi
+      -
+        run: |
+          echo "Version in base branch is ${{ env.BASE_VERSION }}, and in PR is ${{ env.PR_VERSION }}"
+          COMP=$(semver compare ${{ env.BASE_VERSION }} ${{ env.PR_VERSION }}) 
+          if [ $COMP -ge 0 ]; then
+            echo "Must bump version number before merge into ${{ env.BASE_BRANCH }}"
+            echo "Execute make bump-version to bump the version."
+            exit 1
+          fi
