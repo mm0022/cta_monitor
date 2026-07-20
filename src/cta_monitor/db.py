@@ -42,6 +42,8 @@ def aggregate_trades(rows: list[TradeRow]) -> TradeAgg | None:
         end_ms=end_ms,
         duration_ms=end_ms - start_ms,
         order_count=len({r.order_id for r in rows if r.order_id}),  # 全部事件去重 order_id
+        maker_notional=maker_notional,
+        total_notional=total_notional,
     )
 
 

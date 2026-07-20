@@ -51,7 +51,9 @@ def account_summary(rows: list["ReportRow"]) -> list[dict]:
     for acc in sorted(groups):
         rs = groups[acc]
         execed = [r for r in rs if r.maker_ratio is not None]
-        makers = [r.maker_ratio * 100 for r in execed]
+        # 账户级 maker% = 该账户所有币的 maker 总成交额 / 总成交额（成交额加权）
+        maker_notional = sum(r.maker_notional or 0.0 for r in execed)
+        total_notional = sum(r.total_notional or 0.0 for r in execed)
         comps = [
             (r.ticker, round(100 - r.incomplete_pct, 2))
             for r in execed if r.incomplete_pct is not None
@@ -61,7 +63,10 @@ def account_summary(rows: list["ReportRow"]) -> list[dict]:
             "account": acc,
             "n": len(rs),
             "executed": len(execed),
-            "avg_maker": round(sum(makers) / len(makers), 2) if makers else None,
+            "avg_maker": (
+                round(maker_notional / total_notional * 100, 2)
+                if total_notional else None
+            ),
             "avg_completion": (
                 round(sum(c for _, c in comps) / len(comps), 2) if comps else None
             ),
@@ -129,4 +134,6 @@ def build_row(
         status=status,
         note="",
         order_count=agg.order_count if agg else None,
+        maker_notional=agg.maker_notional if agg else None,
+        total_notional=agg.total_notional if agg else None,
     )

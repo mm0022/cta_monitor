@@ -144,26 +144,30 @@ def test_build_row_no_agg_leaves_db_columns_none():
     assert row.status == RowStatus.NO_TRADES
 
 
-def _rr(account, maker, incomplete, status=RowStatus.OK, ticker="X/USDT"):
+def _rr(account, maker, incomplete, status=RowStatus.OK, ticker="X/USDT",
+        maker_notional=None, total_notional=None):
     return ReportRow(
         ticker=ticker, account=account, mark_price=1.0, trade_size=1.0,
         order_notional_u=1.0, qty_change="0→0", delta_qty=1.0, delta_u=1.0, n_orders=1.0,
         maker_ratio=maker, end_ms=None, start_ms=None, duration_ms=None,
         twap_unfilled_qty=None, unfilled_u=None, incomplete_pct=incomplete, status=status,
+        maker_notional=maker_notional, total_notional=total_notional,
     )
 
 
-def test_account_summary():
+def test_account_summary_maker_is_notional_weighted():
+    # 账户级 maker% = 该账户所有币 maker 总成交额 / 总成交额（成交额加权，非简单平均）
     rows = [
-        _rr("accA", 0.80, 2.0, ticker="BTC/USDT"),
-        _rr("accA", 0.60, 20.0, ticker="DOGE/USDT"),
+        # BTC: maker 80/总100；DOGE: maker 540/总900 -> 加权 620/1000 = 62%（简单平均会是 70%）
+        _rr("accA", 0.80, 2.0, ticker="BTC/USDT", maker_notional=80.0, total_notional=100.0),
+        _rr("accA", 0.60, 20.0, ticker="DOGE/USDT", maker_notional=540.0, total_notional=900.0),
         _rr("accA", None, 100.0, status=RowStatus.SMALL_NOTIONAL, ticker="SOL/USDT"),
-        _rr("accB", 1.00, 0.0, ticker="ETH/USDT"),
+        _rr("accB", 1.00, 0.0, ticker="ETH/USDT", maker_notional=50.0, total_notional=50.0),
     ]
     s = {d["account"]: d for d in account_summary(rows)}
     a = s["accA"]
-    assert a["n"] == 3 and a["executed"] == 2          # SOL 未执行(maker None)不计均值
-    assert a["avg_maker"] == 70.0                       # (80+60)/2
+    assert a["n"] == 3 and a["executed"] == 2          # SOL 未执行不计
+    assert a["avg_maker"] == 62.0                       # 620/1000 加权（非简单平均 70）
     assert a["avg_completion"] == 89.0                  # 完成度=100-未完成: (98+80)/2
     assert a["worst_ticker"] == "DOGE/USDT" and a["worst_completion"] == 80.0
-    assert s["accB"]["avg_completion"] == 100.0
+    assert s["accB"]["avg_maker"] == 100.0

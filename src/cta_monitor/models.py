@@ -51,6 +51,8 @@ class TradeAgg:
     end_ms: int               # max(event_time)
     duration_ms: int          # end - start
     order_count: int = 0      # 执行单数 = 本轮全部事件去重 order_id 数（含挂撤未成交）
+    maker_notional: float = 0.0  # maker 成交额（账户级加权用）
+    total_notional: float = 0.0  # 总成交额（账户级加权用）
 
 
 class RowStatus(str, Enum):
@@ -83,4 +85,6 @@ class ReportRow:
     incomplete_pct: float | None        # N（未完成比例 %）
     status: RowStatus
     note: str = ""
-    order_count: int | None = None      # 执行订单数（FULL_EXEC 去重 order_id）
+    order_count: int | None = None      # 执行单数（本轮全部事件去重 order_id）
+    maker_notional: float | None = None  # maker 成交额（账户级 maker% 加权用，不展示）
+    total_notional: float | None = None  # 总成交额（账户级 maker% 加权用，不展示）
