@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import unicodedata
 
-from cta_monitor.metrics import trunc_to
+from cta_monitor.metrics import is_low_maker, trunc_to
 from cta_monitor.models import ReportRow, RowStatus
 
 
@@ -68,6 +68,14 @@ def _q(v) -> str:
     return s.rstrip("0").rstrip(".") if "." in s else s
 
 
+def _maker_cell(r: ReportRow) -> str:
+    """maker% 两位小数；命中「多单低maker」（单数>10 且 maker<50%）后缀 🐢。None → ''。"""
+    if r.maker_ratio is None:
+        return ""
+    s = f"{r.maker_ratio * 100:.2f}%"
+    return s + "🐢" if is_low_maker(r) else s
+
+
 def _split_change(s: str) -> tuple[str, str]:
     """'cur→target' → (cur, target)；无箭头 → ('', '')。"""
     return tuple(s.split("→", 1)) if "→" in s else ("", "")
@@ -81,11 +89,11 @@ def _cells(r: ReportRow) -> list[str]:
         r.ticker,
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),
         _q(cur), _q(tgt), _q(r.delta_qty), _fmt(r.delta_u),
-        "" if r.maker_ratio is None else f"{r.maker_ratio * 100:.2f}%",   # maker% 两位小数
+        _maker_cell(r),   # maker% 两位小数；命中「多单低maker」后缀 🐢
         _fmt(r.duration_ms), _fmt(r.order_count),
         _q(r.twap_unfilled_qty), _q(r.unfilled_u),
         "" if r.incomplete_pct is None else f"{r.incomplete_pct:.2f}%",   # 未完成% 两位小数
-        "是" if r.truly_unfilled else "",   # 真未完成标记（剩余>1个单笔粒度）
+        "🚩" if r.truly_unfilled else "",   # 真未完成标记（剩余>1个单笔粒度）
     ]
 
 
@@ -137,7 +145,7 @@ def render_attention(rows: list[ReportRow]) -> str:
 
     flagged = [(r, attention_reason(r)) for r in rows]
     flagged = [(r, why) for r, why in flagged if why]
-    title = f"⚑ 需要关注（{len(flagged)}）"
+    title = f"🚩 需要关注（{len(flagged)}）"
     if not flagged:
         return title + "\n无异常，全部正常执行。"
     cells = [

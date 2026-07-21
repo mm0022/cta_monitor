@@ -8,7 +8,7 @@ from cta_monitor.metrics import (
     build_row,
     SHOULD_QUERY_STATUSES,
 )
-from cta_monitor.metrics import account_summary, attention_reason
+from cta_monitor.metrics import account_summary, attention_reason, is_low_maker
 from cta_monitor.models import BiyiRow, ReportRow, SignalRecord, TradeAgg, RowStatus
 
 
@@ -173,6 +173,19 @@ def test_account_summary_maker_is_notional_weighted():
     assert a["avg_maker"] == 62.0                       # 620/1000 加权（非简单平均 70）
     assert a["avg_completion"] == 89.0                  # 完成度=100-未完成: (98+80)/2
     assert a["worst_ticker"] == "DOGE/USDT" and a["worst_completion"] == 80.0
+
+
+def test_is_low_maker():
+    # 命中：单数>10 且 maker<50%
+    assert is_low_maker(_rr("a", 0.28, 1.0, order_count=44)) is True
+    # 边界：单数=10 不触发；maker=50% 不触发
+    assert is_low_maker(_rr("a", 0.4, 1.0, order_count=10)) is False
+    assert is_low_maker(_rr("a", 0.5, 1.0, order_count=20)) is False
+    # 单数够但 maker 高 → 不触发
+    assert is_low_maker(_rr("a", 0.9, 1.0, order_count=44)) is False
+    # 缺 order_count / maker → 不触发
+    assert is_low_maker(_rr("a", None, 1.0, order_count=44)) is False
+    assert is_low_maker(_rr("a", 0.3, 1.0, order_count=None)) is False
 
 
 def test_attention_reason():

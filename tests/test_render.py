@@ -69,6 +69,24 @@ def test_columns_display_width_aligned():
     assert len(widths) == 1  # 所有含 | 的行显示宽度相等 -> 列对齐
 
 
+def test_low_maker_row_has_turtle_and_stays_aligned():
+    from cta_monitor.render import _disp_width
+    # 命中「多单低maker」的行：单数>10 且 maker<50% → maker% 列后缀 🐢
+    low = ReportRow(
+        ticker="DOT/USDT", account="acc", mark_price=1.0, trade_size=1.0,
+        order_notional_u=1.0, qty_change="0→0", delta_qty=1.0, delta_u=1.0, n_orders=1.0,
+        maker_ratio=0.28, end_ms=None, start_ms=None, duration_ms=None,
+        twap_unfilled_qty=None, unfilled_u=None, incomplete_pct=None, status=RowStatus.OK,
+        order_count=44,
+    )
+    txt = render_table_text([low, _row()], "t")
+    assert "28.00%🐢" in txt        # 命中行带乌龟
+    assert "75.00%🐢" not in txt    # 未命中行(maker 高)不带
+    # 含 emoji 行不破坏对齐
+    body = [l for l in txt.splitlines() if "|" in l]
+    assert len({_disp_width(l) for l in body}) == 1
+
+
 def test_status_tags_are_east_asian_safe():
     # 状态标记只能含 ASCII 或标准全角(W/F)字符；含 east_asian_width=N 的符号(如 ⚠)
     # 会被 Slack 渲成 2 宽却按 1 宽计算 → 串列。此测试守住这条不变量。

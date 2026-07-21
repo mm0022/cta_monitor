@@ -41,7 +41,7 @@ def write_report_excel(rows: list[ReportRow], out_path: str) -> int:
             "twap未完成量(L)": _t6(r.twap_unfilled_qty),
             "未完成金额u(M)": _t6(r.unfilled_u),
             "未完成比例%(N)": r.incomplete_pct,
-            "真未完成": "是" if r.truly_unfilled else "",
+            "真未完成": "🚩" if r.truly_unfilled else "",
         })
 
     summary = [

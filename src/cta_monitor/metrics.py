@@ -83,6 +83,14 @@ ATTENTION_ORDER_COUNT = 10
 ATTENTION_MAKER_RATIO = 0.5
 
 
+def is_low_maker(r: "ReportRow") -> bool:
+    """多单低maker：执行单数 > 阈值 且 maker 比例 < 阈值（下很多单却主要靠吃单）。"""
+    return (
+        r.order_count is not None and r.order_count > ATTENTION_ORDER_COUNT
+        and r.maker_ratio is not None and r.maker_ratio < ATTENTION_MAKER_RATIO
+    )
+
+
 def attention_reason(r: "ReportRow") -> str | None:
     """判断一行是否「需要关注」，返回原因（可多条，'/' 连接）；无 → None。
     ① 超单笔下单量没完成（truly_unfilled）
@@ -90,10 +98,7 @@ def attention_reason(r: "ReportRow") -> str | None:
     reasons: list[str] = []
     if r.truly_unfilled:
         reasons.append("超单笔量未完成")
-    if (
-        r.order_count is not None and r.order_count > ATTENTION_ORDER_COUNT
-        and r.maker_ratio is not None and r.maker_ratio < ATTENTION_MAKER_RATIO
-    ):
+    if is_low_maker(r):
         reasons.append(f"多单低maker({r.order_count}单/{r.maker_ratio*100:.0f}%)")
     return " / ".join(reasons) if reasons else None
 
