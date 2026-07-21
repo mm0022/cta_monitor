@@ -63,6 +63,7 @@ def account_summary(rows: list["ReportRow"]) -> list[dict]:
             "account": acc,
             "n": len(rs),
             "executed": len(execed),
+            "total_notional": round(total_notional, 2),  # 该账户总成交额(USD)
             "avg_maker": (
                 round(maker_notional / total_notional * 100, 2)
                 if total_notional else None

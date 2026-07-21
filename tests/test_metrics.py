@@ -167,6 +167,7 @@ def test_account_summary_maker_is_notional_weighted():
     s = {d["account"]: d for d in account_summary(rows)}
     a = s["accA"]
     assert a["n"] == 3 and a["executed"] == 2          # SOL 未执行不计
+    assert a["total_notional"] == 1000.0                # 100+900 总成交额
     assert a["avg_maker"] == 62.0                       # 620/1000 加权（非简单平均 70）
     assert a["avg_completion"] == 89.0                  # 完成度=100-未完成: (98+80)/2
     assert a["worst_ticker"] == "DOGE/USDT" and a["worst_completion"] == 80.0

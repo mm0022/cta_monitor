@@ -48,6 +48,7 @@ def write_report_excel(rows: list[ReportRow], out_path: str) -> int:
             "账户": short_account(s["account"]),
             "统计币数": s["n"],
             "已执行": s["executed"],
+            "总交易额u": s["total_notional"],
             "平均maker%": s["avg_maker"],
             "平均完成度%": s["avg_completion"],
             "完成度最低-币": s["worst_ticker"],
