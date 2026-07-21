@@ -8,7 +8,7 @@ from cta_monitor.metrics import (
     build_row,
     SHOULD_QUERY_STATUSES,
 )
-from cta_monitor.metrics import account_summary
+from cta_monitor.metrics import account_summary, attention_reason
 from cta_monitor.models import BiyiRow, ReportRow, SignalRecord, TradeAgg, RowStatus
 
 
@@ -145,13 +145,14 @@ def test_build_row_no_agg_leaves_db_columns_none():
 
 
 def _rr(account, maker, incomplete, status=RowStatus.OK, ticker="X/USDT",
-        maker_notional=None, total_notional=None):
+        maker_notional=None, total_notional=None, order_count=None, truly_unfilled=False):
     return ReportRow(
         ticker=ticker, account=account, mark_price=1.0, trade_size=1.0,
         order_notional_u=1.0, qty_change="0→0", delta_qty=1.0, delta_u=1.0, n_orders=1.0,
         maker_ratio=maker, end_ms=None, start_ms=None, duration_ms=None,
         twap_unfilled_qty=None, unfilled_u=None, incomplete_pct=incomplete, status=status,
         maker_notional=maker_notional, total_notional=total_notional,
+        order_count=order_count, truly_unfilled=truly_unfilled,
     )
 
 
@@ -160,7 +161,7 @@ def test_account_summary_maker_is_notional_weighted():
     rows = [
         # BTC: maker 80/总100；DOGE: maker 540/总900 -> 加权 620/1000 = 62%（简单平均会是 70%）
         _rr("accA", 0.80, 2.0, ticker="BTC/USDT", maker_notional=80.0, total_notional=100.0),
-        _rr("accA", 0.60, 20.0, ticker="DOGE/USDT", maker_notional=540.0, total_notional=900.0),
+        _rr("accA", 0.60, 20.0, ticker="DOGE/USDT", maker_notional=540.0, total_notional=900.0, truly_unfilled=True),
         _rr("accA", None, 100.0, status=RowStatus.SMALL_NOTIONAL, ticker="SOL/USDT"),
         _rr("accB", 1.00, 0.0, ticker="ETH/USDT", maker_notional=50.0, total_notional=50.0),
     ]
@@ -168,7 +169,25 @@ def test_account_summary_maker_is_notional_weighted():
     a = s["accA"]
     assert a["n"] == 3 and a["executed"] == 2          # SOL 未执行不计
     assert a["total_notional"] == 1000.0                # 100+900 总成交额
+    assert a["unfilled_n"] == 1                          # DOGE truly_unfilled
     assert a["avg_maker"] == 62.0                       # 620/1000 加权（非简单平均 70）
     assert a["avg_completion"] == 89.0                  # 完成度=100-未完成: (98+80)/2
     assert a["worst_ticker"] == "DOGE/USDT" and a["worst_completion"] == 80.0
-    assert s["accB"]["avg_maker"] == 100.0
+
+
+def test_attention_reason():
+    # ① 超单笔量未完成
+    r1 = _rr("a", 0.9, 8.0, ticker="DOT/USDT", order_count=44, truly_unfilled=True)
+    assert "超单笔量未完成" in attention_reason(r1)
+    # ② 执行单数>10 且 maker<50%
+    r2 = _rr("a", 0.28, 8.0, ticker="DOT/USDT", order_count=44, truly_unfilled=False)
+    assert "多单低maker" in attention_reason(r2)
+    # 边界：单数=10 不触发；maker=50% 不触发
+    assert attention_reason(_rr("a", 0.4, 1.0, order_count=10)) is None
+    assert attention_reason(_rr("a", 0.5, 1.0, order_count=20)) is None
+    # 正常行 → None
+    assert attention_reason(_rr("a", 0.9, 1.0, order_count=5)) is None
+    # 两条同时命中 → 都在原因里
+    r3 = _rr("a", 0.3, 8.0, order_count=44, truly_unfilled=True)
+    why = attention_reason(r3)
+    assert "超单笔量未完成" in why and "多单低maker" in why

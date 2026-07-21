@@ -6,7 +6,7 @@ from cta_monitor.models import ReportRow, RowStatus
 _COLS = [
     "账户", "状态", "TICKER", "mark_price", "单笔粒度", "单笔报单u(D)",
     "决策时持仓(cur)", "目标(target)", "delta币量(F)", "delta金额u", "maker%", "执行ms(K)",
-    "执行单数", "twap未完成量(L)", "未完成金额u(M)", "未完成比例%(N)",
+    "执行单数", "twap未完成量(L)", "未完成金额u(M)", "未完成比例%(N)", "真未完成",
 ]
 
 
@@ -25,7 +25,9 @@ def test_write_report_excel(tmp_path):
     out = str(tmp_path / "r.xlsx")
     n = write_report_excel([_row()], out)
     assert n == 1
-    df = pd.read_excel(out, engine="openpyxl")
+    # 三个 sheet：需关注 / 明细 / 账户汇总
+    assert pd.ExcelFile(out, engine="openpyxl").sheet_names == ["需关注", "明细", "账户汇总"]
+    df = pd.read_excel(out, sheet_name="明细", engine="openpyxl")
     assert list(df.columns) == _COLS
     r = df.iloc[0]
     assert r["账户"] == "asf"                 # 别名生效

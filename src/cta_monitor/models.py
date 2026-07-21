@@ -88,3 +88,4 @@ class ReportRow:
     order_count: int | None = None      # 执行单数（本轮全部事件去重 order_id）
     maker_notional: float | None = None  # maker 成交额（账户级 maker% 加权用，不展示）
     total_notional: float | None = None  # 总成交额（账户级 maker% 加权用，不展示）
+    truly_unfilled: bool = False        # 真未完成：|未完成量|/单笔粒度 > 1（剩余够下单却没下）

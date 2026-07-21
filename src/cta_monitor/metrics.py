@@ -64,6 +64,7 @@ def account_summary(rows: list["ReportRow"]) -> list[dict]:
             "n": len(rs),
             "executed": len(execed),
             "total_notional": round(total_notional, 2),  # 该账户总成交额(USD)
+            "unfilled_n": sum(1 for r in rs if r.truly_unfilled),  # 真未完成币对数
             "avg_maker": (
                 round(maker_notional / total_notional * 100, 2)
                 if total_notional else None
@@ -75,6 +76,26 @@ def account_summary(rows: list["ReportRow"]) -> list[dict]:
             "worst_completion": worst[1] if worst else None,
         })
     return out
+
+
+# 执行单数阈值 + maker 阈值（低 maker 关注条件）
+ATTENTION_ORDER_COUNT = 10
+ATTENTION_MAKER_RATIO = 0.5
+
+
+def attention_reason(r: "ReportRow") -> str | None:
+    """判断一行是否「需要关注」，返回原因（可多条，'/' 连接）；无 → None。
+    ① 超单笔下单量没完成（truly_unfilled）
+    ② 执行单数 > 10 但 maker 比例 < 50%（下了很多单却主要靠吃单）"""
+    reasons: list[str] = []
+    if r.truly_unfilled:
+        reasons.append("超单笔量未完成")
+    if (
+        r.order_count is not None and r.order_count > ATTENTION_ORDER_COUNT
+        and r.maker_ratio is not None and r.maker_ratio < ATTENTION_MAKER_RATIO
+    ):
+        reasons.append(f"多单低maker({r.order_count}单/{r.maker_ratio*100:.0f}%)")
+    return " / ".join(reasons) if reasons else None
 
 
 def classify_status(
@@ -137,4 +158,6 @@ def build_row(
         order_count=agg.order_count if agg else None,
         maker_notional=agg.maker_notional if agg else None,
         total_notional=agg.total_notional if agg else None,
+        # 真未完成：剩余量还够下至少一个单笔粒度却没下（<=1 个粒度的尾差下不出去，属正常）
+        truly_unfilled=(biyi.trade_size > 0 and abs(unfilled) / biyi.trade_size > 1),
     )
