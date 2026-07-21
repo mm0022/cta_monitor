@@ -39,15 +39,16 @@ def short_account(account: str) -> str:
         return _ACCOUNT_ALIAS[account]
     return account.replace("binance_", "").replace("cta_", "")
 
-# 异常状态行首标记（正常留空）
+# 异常状态行首标记（正常留空）。全部用标准 CJK 字符（east_asian_width=W，恒等宽）；
+# 不用 emoji/符号（如 ⚠ 的 east_asian_width=N，会被 Slack 渲成 2 宽而算成 1 宽 → 串列）。
 _STATUS_TAG = {
     RowStatus.OK: "",
     RowStatus.RUNNING: "运行中",
     RowStatus.SMALL_NOTIONAL: "小额",
     RowStatus.BELOW_TRADE_SIZE: "未下单",
-    RowStatus.SIGNAL_TIME_MISMATCH: "⚠时间不符",
-    RowStatus.NO_TRADES: "⚠无成交",
-    RowStatus.NO_SIGNAL: "⚠无信号",
+    RowStatus.SIGNAL_TIME_MISMATCH: "时间异常",
+    RowStatus.NO_TRADES: "无成交",
+    RowStatus.NO_SIGNAL: "无信号",
 }
 
 

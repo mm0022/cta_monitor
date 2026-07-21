@@ -45,7 +45,7 @@ def test_all_status_tags_render():
         RowStatus.SIGNAL_TIME_MISMATCH, RowStatus.NO_TRADES, RowStatus.NO_SIGNAL,
     ])]
     txt = render_table_text(rows, "t")
-    for tag in ("运行中", "小额", "未下单", "⚠时间不符", "⚠无成交", "⚠无信号"):
+    for tag in ("运行中", "小额", "未下单", "时间异常", "无成交", "无信号"):
         assert tag in txt
 
 
@@ -67,3 +67,18 @@ def test_columns_display_width_aligned():
     body = [l for l in txt.splitlines() if "|" in l]
     widths = {_disp_width(l) for l in body}
     assert len(widths) == 1  # 所有含 | 的行显示宽度相等 -> 列对齐
+
+
+def test_status_tags_are_east_asian_safe():
+    # 状态标记只能含 ASCII 或标准全角(W/F)字符；含 east_asian_width=N 的符号(如 ⚠)
+    # 会被 Slack 渲成 2 宽却按 1 宽计算 → 串列。此测试守住这条不变量。
+    import unicodedata
+    from cta_monitor.render import _STATUS_TAG, _HEADERS
+    for text in list(_STATUS_TAG.values()) + _HEADERS:
+        for ch in text:
+            if ord(ch) <= 127:
+                continue
+            assert unicodedata.east_asian_width(ch) in ("W", "F"), (
+                f"字符 {ch!r}(U+{ord(ch):04X}) eaw={unicodedata.east_asian_width(ch)} "
+                f"非全角，会在 Slack 串列"
+            )
