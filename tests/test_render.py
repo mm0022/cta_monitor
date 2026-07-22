@@ -71,7 +71,7 @@ def test_columns_display_width_aligned():
 
 def test_low_maker_row_has_turtle_and_stays_aligned():
     from cta_monitor.render import _disp_width
-    # 命中「多单低maker」的行：单数>10 且 maker<50% → maker% 列后缀 🐢
+    # 命中「多单低maker」的行：单数>10 且 maker<70% → maker% 列后缀 🐢
     low = ReportRow(
         ticker="DOT/USDT", account="acc", mark_price=1.0, trade_size=1.0,
         order_notional_u=1.0, qty_change="0→0", delta_qty=1.0, delta_u=1.0, n_orders=1.0,

@@ -69,7 +69,7 @@ def _q(v) -> str:
 
 
 def _maker_cell(r: ReportRow) -> str:
-    """maker% 两位小数；命中「多单低maker」（单数>10 且 maker<50%）后缀 🐢。None → ''。"""
+    """maker% 两位小数；命中「多单低maker」（单数>10 且 maker<70%）后缀 🐢。None → ''。"""
     if r.maker_ratio is None:
         return ""
     s = f"{r.maker_ratio * 100:.2f}%"

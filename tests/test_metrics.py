@@ -176,11 +176,12 @@ def test_account_summary_maker_is_notional_weighted():
 
 
 def test_is_low_maker():
-    # 命中：单数>10 且 maker<50%
+    # 命中：单数>10 且 maker<70%
     assert is_low_maker(_rr("a", 0.28, 1.0, order_count=44)) is True
-    # 边界：单数=10 不触发；maker=50% 不触发
+    assert is_low_maker(_rr("a", 0.69, 1.0, order_count=20)) is True
+    # 边界：单数=10 不触发；maker=70% 不触发（严格 <）
     assert is_low_maker(_rr("a", 0.4, 1.0, order_count=10)) is False
-    assert is_low_maker(_rr("a", 0.5, 1.0, order_count=20)) is False
+    assert is_low_maker(_rr("a", 0.70, 1.0, order_count=20)) is False
     # 单数够但 maker 高 → 不触发
     assert is_low_maker(_rr("a", 0.9, 1.0, order_count=44)) is False
     # 缺 order_count / maker → 不触发
@@ -192,12 +193,12 @@ def test_attention_reason():
     # ① 超单笔量未完成
     r1 = _rr("a", 0.9, 8.0, ticker="DOT/USDT", order_count=44, truly_unfilled=True)
     assert "超单笔量未完成" in attention_reason(r1)
-    # ② 执行单数>10 且 maker<50%
+    # ② 执行单数>10 且 maker<70%
     r2 = _rr("a", 0.28, 8.0, ticker="DOT/USDT", order_count=44, truly_unfilled=False)
     assert "多单低maker" in attention_reason(r2)
-    # 边界：单数=10 不触发；maker=50% 不触发
+    # 边界：单数=10 不触发；maker=70% 不触发
     assert attention_reason(_rr("a", 0.4, 1.0, order_count=10)) is None
-    assert attention_reason(_rr("a", 0.5, 1.0, order_count=20)) is None
+    assert attention_reason(_rr("a", 0.70, 1.0, order_count=20)) is None
     # 正常行 → None
     assert attention_reason(_rr("a", 0.9, 1.0, order_count=5)) is None
     # 两条同时命中 → 都在原因里
