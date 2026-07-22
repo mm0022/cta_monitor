@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 
 from cta_monitor.config import load_config
 from cta_monitor.excel import write_report_excel
+from cta_monitor.history import append_run_record, run_record
 from cta_monitor.pipeline import run_once
 from cta_monitor.render import render_account_summary, render_attention, render_table_text
 from cta_monitor.slack import SlackClient
@@ -39,7 +40,10 @@ def main() -> None:
     os.makedirs("output", exist_ok=True)
     out_path = f"output/cta_monitor_{now_bj.strftime('%Y%m%d_%H%M')}.xlsx"
     n = write_report_excel(result.rows, out_path)
-    print(f"已发送 Slack + 存 Excel：{n} 行 -> {out_path}")
+
+    # 3) 追加一条运行记录到 JSONL（供后续参数评估；stale 分支已 return，不记）
+    append_run_record("output/runs.jsonl", run_record(result.rows, now_ms, cfg))
+    print(f"已发送 Slack + 存 Excel + 追加 runs.jsonl：{n} 行 -> {out_path}")
 
 
 if __name__ == "__main__":
