@@ -16,11 +16,12 @@ def _pad(cell: str, width: int) -> str:
     """按显示宽度右侧补空格到 width。"""
     return cell + " " * (width - _disp_width(cell))
 
-# 列与 Excel 导出保持一致（14 列；不含 报单笔数/结束时间/开始时间）
+# 列口径与 Excel 导出一致；差异：Slack 表隐藏「决策持仓/目标」两列，「状态」放最后一列
+# （状态多为空，放中间易看串行）。Excel 仍保留全部列。
 _HEADERS = [
-    "账户", "状态", "TICKER", "mark", "单笔粒度", "单笔报单u",
-    "决策持仓", "目标", "delta", "deltaU", "份数", "maker%", "执行ms", "执行单数",
-    "未完成量", "未完成u", "未完成%", "未完成",
+    "账户", "TICKER", "mark", "单笔粒度", "单笔报单u",
+    "delta", "deltaU", "份数", "maker%", "执行ms", "执行单数",
+    "未完成量", "未完成u", "未完成%", "未完成", "状态",
 ]
 
 
@@ -76,25 +77,19 @@ def _maker_cell(r: ReportRow) -> str:
     return s + "🐢" if is_low_maker(r) else s
 
 
-def _split_change(s: str) -> tuple[str, str]:
-    """'cur→target' → (cur, target)；无箭头 → ('', '')。"""
-    return tuple(s.split("→", 1)) if "→" in s else ("", "")
-
-
 def _cells(r: ReportRow) -> list[str]:
-    cur, tgt = _split_change(r.qty_change)
     return [
         short_account(r.account),
-        _STATUS_TAG.get(r.status, r.status.value),
         r.ticker,
         _fmt(r.mark_price), _fmt(r.trade_size), _fmt(r.order_notional_u),
-        _q(cur), _q(tgt), _q(r.delta_qty), _fmt(r.delta_u),
+        _q(r.delta_qty), _fmt(r.delta_u),
         _fmt(r.n_units),   # 份数 = roundup(|delta|/单笔粒度)
         _maker_cell(r),   # maker% 两位小数；命中「多单低maker」后缀 🐢
         _fmt(r.duration_ms), _fmt(r.order_count),
         _q(r.twap_unfilled_qty), _q(r.unfilled_u),
         "" if r.incomplete_pct is None else f"{r.incomplete_pct:.2f}%",   # 未完成% 两位小数
         "🚩" if r.truly_unfilled else "",   # 真未完成标记（剩余>1个单笔粒度）
+        _STATUS_TAG.get(r.status, r.status.value),   # 状态放最后一列（多为空，避免中间列串行）
     ]
 
 
