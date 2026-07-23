@@ -35,6 +35,7 @@ def write_report_excel(rows: list[ReportRow], out_path: str) -> int:
             "目标(target)": _t6(tgt),
             "delta币量(F)": _t6(r.delta_qty),
             "delta金额u": r.delta_u,
+            "份数(delta/单笔)": r.n_units,
             "maker%": None if r.maker_ratio is None else round(r.maker_ratio * 100, 2),
             "执行ms(K)": r.duration_ms,
             "执行单数": r.order_count,

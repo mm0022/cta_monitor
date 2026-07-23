@@ -89,3 +89,4 @@ class ReportRow:
     maker_notional: float | None = None  # maker 成交额（账户级 maker% 加权用，不展示）
     total_notional: float | None = None  # 总成交额（账户级 maker% 加权用，不展示）
     truly_unfilled: bool = False        # 真未完成：|未完成量|/单笔粒度 > 1（剩余够下单却没下）
+    n_units: int | None = None          # 份数 = roundup(|delta|/单笔粒度)，整数（一轮要成交几个单笔量）

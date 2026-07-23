@@ -29,6 +29,11 @@ def n_orders(delta_qty: float, trade_size: float) -> float:
     return trunc_to(abs(delta_qty) / trade_size, 1)
 
 
+def n_units(delta_qty: float, trade_size: float) -> int:
+    """份数 = roundup(|delta|/单笔粒度)，向上取整整数（一轮要成交几个单笔量）。"""
+    return math.ceil(abs(delta_qty) / trade_size)
+
+
 def incomplete_pct(unfilled_qty: float, delta_qty: float) -> float:
     """未完成比例 = round(abs(未完成)/abs(delta) * 100, 2)。分母取 abs 兼容负 delta。"""
     return round(abs(unfilled_qty) / abs(delta_qty) * 100, 2)
@@ -151,6 +156,7 @@ def build_row(
         delta_qty=sig.delta_qty,
         delta_u=round(sig.delta_qty * sig.mark_price, 1),
         n_orders=n_orders(sig.delta_qty, biyi.trade_size),
+        n_units=(n_units(sig.delta_qty, biyi.trade_size) if biyi.trade_size else None),
         maker_ratio=agg.maker_ratio if agg else None,
         end_ms=agg.end_ms if agg else None,
         start_ms=agg.start_ms if agg else None,

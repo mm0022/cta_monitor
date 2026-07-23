@@ -175,6 +175,13 @@ def test_account_summary_maker_is_notional_weighted():
     assert a["worst_ticker"] == "DOGE/USDT" and a["worst_completion"] == 80.0
 
 
+def test_n_units():
+    from cta_monitor.metrics import n_units
+    assert n_units(50, 5) == 10          # 恰好整除
+    assert n_units(-51, 5) == 11         # 负 delta 取 abs；10.2 → roundup 11
+    assert n_units(581, 11.6) == 51      # 50.09 → roundup 51（份数口径）
+
+
 def test_is_low_maker():
     # 命中：单数>10 且 maker<70%
     assert is_low_maker(_rr("a", 0.28, 1.0, order_count=44)) is True
